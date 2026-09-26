@@ -17,10 +17,91 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:none;}
 body{position:fixed;left:0;top:0;right:0;bottom:0;}
 canvas{display:block;position:absolute;left:0;top:0;touch-action:none;outline:none;}
+/* ---- オンラインランキング ---- */
+#rk{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:5;color:#e8e6ff;
+  font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP','Noto Sans CJK JP','Yu Gothic',Meiryo,system-ui,sans-serif;}
+#rk [hidden]{display:none!important}
+#rk button{font:inherit;font-weight:900;color:#fff;border:0;margin:0;cursor:pointer;touch-action:manipulation;-webkit-appearance:none;appearance:none;}
+#rk .pe{pointer-events:auto}
+.rk-pill{position:absolute;height:44px;padding:0 16px;border-radius:22px;font-size:15px!important;
+  background:rgba(255,255,255,0.09)!important;box-shadow:inset 0 0 0 1.5px rgba(170,160,255,0.45);color:#ffe27a!important;text-shadow:0 1px 2px #000}
+.rk-back{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(8,4,24,0.84);display:flex;align-items:center;justify-content:center;
+  padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom));box-sizing:border-box}
+.rk-card{width:100%;max-width:400px;max-height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:14px 14px 12px;border-radius:18px;
+  background:linear-gradient(#1c1245,#140a33);box-shadow:0 0 0 1.5px rgba(160,140,255,0.4),0 0 30px rgba(255,138,42,0.25)}
+.rk-h{text-align:center;font-size:24px;font-weight:900;color:#ffe27a;text-shadow:0 0 12px #ff8a2a,0 2px 0 #5a1a00}
+.rk-sub{text-align:center;font-size:12px;font-weight:700;color:#a9c8ff;margin:2px 0 8px}
+.rk-over{position:absolute;display:flex;flex-direction:column;box-sizing:border-box;padding:10px 10px 6px;border-radius:16px;overflow:hidden;
+  background:rgba(20,12,50,0.78);box-shadow:0 0 0 1.5px rgba(160,140,255,0.35)}
+.rk-winbox{flex:0 0 auto}
+.rk-win{text-align:center;font-size:19px;font-weight:900;color:#ffe27a;margin:0 0 7px;text-shadow:0 0 10px #ff8a2a,0 2px 0 #5a1a00;animation:rkpop .5s ease-out,rkglow 1.2s ease-in-out .5s infinite alternate}
+.rk-win b{color:#fff;font-size:23px}
+@keyframes rkpop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes rkglow{from{text-shadow:0 0 6px #ff8a2a,0 2px 0 #5a1a00}to{text-shadow:0 0 18px #ffb347,0 2px 0 #5a1a00}}
+.rk-list li.me.pend{background:rgba(255,140,40,0.22)!important;box-shadow:inset 0 0 0 1.5px rgba(255,210,74,0.7)}
+.rk-list li.me.pend .rk-n{color:#ffd24a}
+.rk-form{display:flex;gap:8px;flex:0 0 auto}
+.rk-form input{flex:1 1 auto;min-width:0;height:46px;box-sizing:border-box;padding:0 12px;border-radius:12px;font:inherit;font-size:16px;font-weight:700;
+  color:#fff;background:rgba(255,255,255,0.08);border:1.5px solid rgba(190,180,255,0.5);outline:none;-webkit-user-select:text;user-select:text;
+  -webkit-appearance:none;appearance:none;touch-action:manipulation}
+.rk-form input:focus{border-color:#ffd24a;background:rgba(255,255,255,0.13)}
+.rk-form input::placeholder{color:rgba(200,195,240,0.55);font-weight:400}
+.rk-form input:disabled{opacity:.6}
+.rk-btn{flex:0 0 auto;height:46px;padding:0 14px;border-radius:23px;font-size:15px!important;white-space:nowrap;
+  background:linear-gradient(#ffb347,#ff5e3a)!important;text-shadow:0 1px 0 #8a2400,0 0 4px #8a2400;box-shadow:0 0 12px rgba(255,106,31,0.45)}
+.rk-btn:disabled{background:rgba(120,110,200,0.35)!important;box-shadow:none;text-shadow:none;color:#c9c4ee!important}
+.rk-btn2{height:46px;padding:0 14px;border-radius:23px;font-size:15px!important;background:rgba(120,110,200,0.3)!important;box-shadow:inset 0 0 0 1.5px rgba(190,180,255,0.45)}
+.rk-st{flex:0 0 auto;margin:5px 2px 1px;font-size:14px;font-weight:700;line-height:1.35;text-align:center}
+.rk-st:empty{display:none}#rkSt:not(:empty)+#rkPred:not(:empty){margin-left:.5em}
+.rk-st .ok{color:#7affb0}.rk-st .ng{color:#ff8a9a}.rk-st .wait{color:#a9c8ff}.rk-st .in{color:#ffd24a}.rk-st .outr{color:#a9a3d6}
+.rk-lh{flex:0 0 auto;font-size:13px;font-weight:900;color:#a9a3d6;margin:4px 2px 3px;display:flex;justify-content:space-between}
+.rk-lh small{font-weight:700;color:#8f8ac0}
+.rk-list{list-style:none;margin:0;padding:0;flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
+.rk-list li{display:flex;align-items:center;gap:8px;flex:1 1 26px;min-height:22px;max-height:30px;padding:0 8px;border-radius:8px;font-size:15px;font-weight:700}
+.rk-list li:nth-child(odd){background:rgba(255,255,255,0.04)}
+.rk-list .rk-r{flex:0 0 3.1em;color:#a9a3d6;font-weight:900}
+.rk-list .rk-n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-list .rk-s{flex:0 0 auto;font-weight:900;color:#fff27a;font-variant-numeric:tabular-nums}
+.rk-list li.r1 .rk-r{color:#ffd83d}.rk-list li.r2 .rk-r{color:#dfe6ff}.rk-list li.r3 .rk-r{color:#ffae6a}
+.rk-list li.me{background:linear-gradient(90deg,rgba(255,140,40,0.55),rgba(255,94,58,0.25))!important;box-shadow:inset 0 0 0 1.5px #ffd24a}
+.rk-list li.me .rk-r,.rk-list li.me .rk-n{color:#fff}
+.rk-list li.msg{justify-content:center;color:#a9a3d6;background:none!important;flex:0 0 auto;min-height:40px;max-height:none;text-align:center}
+.rk-card .rk-list li{flex:0 0 32px;max-height:none;font-size:16px}
+.rk-all{flex:0 0 auto;text-align:center;font-size:14px;font-weight:900;color:#9ffcff;margin:3px 2px 1px;line-height:1.35}
+.rk-all:empty{display:none}.rk-all.wait{color:#a9c8ff;font-weight:700}.rk-all.ng{color:#a9a3d6;font-weight:700}
+.rk-card .rk-all{margin-top:8px;font-size:15px}
+@media (max-height:699px){.rk-over .rk-list li{min-height:19px;font-size:14px}.rk-win{margin-bottom:5px}}
+.rk-foot{display:flex;gap:10px;justify-content:center;margin-top:10px}
+.rk-foot button{flex:1 1 0;max-width:170px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="rk">
+  <button id="rkOpen" class="rk-pill pe" type="button" hidden>🏆 ランキング</button>
+  <div id="rkModal" class="rk-back pe" hidden>
+    <div class="rk-card" role="dialog" aria-label="ランキング">
+      <div class="rk-h">🏆 ランキング</div>
+      <div class="rk-sub" id="rkSubT">TOP10</div>
+      <ol class="rk-list" id="rkListT"></ol>
+      <div class="rk-all" id="rkAllT"></div>
+      <div class="rk-foot"><button id="rkReloadT" class="rk-btn2" type="button">再読み込み</button><button id="rkClose" class="rk-btn" type="button">閉じる</button></div>
+    </div>
+  </div>
+  <div id="rkOver" class="rk-over pe" hidden>
+    <div id="rkWin" class="rk-winbox" hidden>
+      <div class="rk-win">🎉 ランクイン！ <b id="rkWinRank"></b>に入りました！</div>
+      <div class="rk-form">
+      <input id="rkName" type="text" maxlength="12" placeholder="ニックネーム" autocomplete="nickname" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-label="ニックネーム">
+      <button id="rkSend" class="rk-btn" type="button">ランキングに登録</button>
+      </div>
+    </div>
+    <div class="rk-st"><span id="rkSt"></span><span id="rkPred"></span></div>
+    <div class="rk-all" id="rkAll"></div>
+    <div class="rk-lh"><span>ランキング TOP10</span><small id="rkSubO"></small></div>
+    <ol class="rk-list" id="rkListO"></ol>
+  </div>
+</div>
 <script>
 (() => {
 'use strict';
@@ -34,6 +115,11 @@ const P = { G: 11, TH: 34, IB: 2, IN: 1.2, FB: 0.3, FN: 0.1, WP: 0.9, TERM: 16, 
 // FX/FSX/FB2: 早送りボタン押下中のメテオ落下速度倍率 / 出現ペース倍率 / 1秒あたりのボーナス点
 // RI: 押し上げで再点火した燃焼ブロックの推力の重み / PV: 押し上げ時に上の塊の上昇速度を引き継ぐ割合 / RF: 押し上げで再点火する燃焼ブロック1個あたりの追加燃料(秒) / SNAP: 着地直前の塊と地面をまたぐマッチを許す隙間(段)
 // HB/HC: 横に広い塊（横消し）の重さペナルティ軽減。噴射比率 ×(1 + HB × min(列数-1, HC))。1列の縦打ち上げは従来どおり
+// 打ち上げ後に落ちてくる塊（推力なし・下降中）の落下を列数（幅）で段階的に変える: [重力, 最大落下速度(段/秒)]
+// 1列は速く落ち、幅が広いほどゆっくり（押し上げ・追加点火の猶予が増える）。3〜4列は従来どおり P.GF / P.TF（null の段）
+const FALL_W = [null, { g: 11, t: 12 }, { g: 7.5, t: 9 }, null, null, { g: 3.8, t: 5.2 }, { g: 3.8, t: 5.2 }, { g: 3, t: 4 }];
+const fallStage = nc => FALL_W[clamp(nc, 1, 7)] || { g: P.GF, t: P.TF };
+const CHAIN_T = 1.5; // 落ちてきた塊のブロックが着地後に「再点火コンボ」を引き継ぐ秒数（燃えカスの間はずっと保持）
 const FONT = "'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP','Noto Sans CJK JP','Yu Gothic',Meiryo,system-ui,sans-serif";
 const COLORS = [
   { base: '#ff4d6d', light: '#ffa0b0', dark: '#a8123a' }, // ● 赤
@@ -234,11 +320,11 @@ let hi = 0, newHi = false, debugNoSpawn = false, frozen = false, paused = false;
 let fastId = null, fastKey = false, fastAcc = 0; // 早送りボタンを押している pointerId
 const fastOn = () => state === 'play' && !paused && (fastId !== null || fastKey);
 function stopFast() { if (fastId !== null) { try { cv.releasePointerCapture(fastId); } catch (e) {} } fastId = null; fastKey = false; }
-let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0 };
+let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
 let nextId = 1, live = 0; // live: 盤上に存在するブロック数（整合性チェック用）
 try { hi = +localStorage.getItem('meteoflick_hi') || 0; } catch (e) {}
 
-function newBlock(color) { return { id: nextId++, color, state: 'norm', t: 0, ay: 0, flash: 0, squash: 0, dragOff: 0, dragging: false }; }
+function newBlock(color) { return { id: nextId++, color, state: 'norm', t: 0, ay: 0, flash: 0, squash: 0, dragOff: 0, dragging: false, chain: 0, chainT: 0 }; }
 const numColors = () => level >= 4 ? 6 : 5;
 // 落下（未着地メテオ）速度と出現間隔（前バージョンと同じ）
 const T = { FS0: 1.6, FSL: 0.25, FSMAX: 5, SI0: 1.7, SIL: 0.1, SIMIN: 0.45 };
@@ -271,7 +357,7 @@ function startGame() {
   state = 'play'; stateT = 0; paused = false; stopFast();
   groups = []; particles = []; popups = []; flyaways = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
-  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0 };
+  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
   popup('スタート！', W / 2, ftop + cell * 4, { size: 1.6, color: '#fff27a', life: 1.1 });
@@ -283,6 +369,7 @@ function gameOver() {
   for (const id of [...drags.keys()]) endDrag(id);
   if (score > hi) { hi = score; newHi = true; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
   shake = 10; sfx.over(); buzz([80, 60, 120]);
+  rkOnGameOver();
 }
 
 // ===================== 一時停止 =====================
@@ -390,7 +477,7 @@ function pushUp(L, U, wl) {
 function landGroup(g) {
   const byCol = new Map();
   for (const e of g.blocks) { if (!byCol.has(e.c)) byCol.set(e.c, []); byCol.get(e.c).push(e); }
-  let landed = 0;
+  let landed = 0; const cc = g.meteor ? 0 : Math.max(g.combo || 0, g.lastCombo || 0); // 途中で分かれた塊もコンボを覚えておく
   for (const [c, arr] of byCol) {
     arr.sort((a, b) => a.r - b.r);
     let idx = 0; const h = rest[c].length;
@@ -400,6 +487,7 @@ function landGroup(g) {
       while (idx < arr.length && arr[idx].r === expect) {
         const b = arr[idx].b;
         if (b.state === 'fire') { b.state = 'ash'; b.t = ASH_T + Math.random() * 0.3; }
+        if (cc >= 1) { b.chain = Math.max(b.chain, cc); b.chainT = CHAIN_T; } // 再点火でコンボを引き継ぐ
         b.squash = 1; rest[c].push(b); idx++; expect++; landed++;
       }
       // 着地の土ぼこり
@@ -409,7 +497,7 @@ function landGroup(g) {
     while (idx < arr.length) {
       const seg = []; let expect = arr[idx].r;
       while (idx < arr.length && arr[idx].r === expect) { seg.push({ b: arr[idx].b, c, r: arr[idx].r }); idx++; expect++; }
-      groups.push({ id: nextId++, blocks: seg, y: g.y, vy: Math.min(0, g.vy) * 0.5, fuel: 0, meteor: false, combo: 0 });
+      groups.push({ id: nextId++, blocks: seg, y: g.y, vy: Math.min(0, g.vy) * 0.5, fuel: 0, meteor: false, combo: 0, lastCombo: cc });
     }
   }
   if (!g.meteor && landed) { sfx.land(true); shake = Math.max(shake, Math.min(7, 1.5 + landed * 0.35)); buzz(12); }
@@ -576,6 +664,8 @@ function checkRest() {
       if (lit.has(c)) ents.push(...lit.get(c));
       c++;
     }
+    let ch = 0; for (const e of g.blocks) if (e.b.chainT > 0 && e.b.chain > ch) ch = e.b.chain;
+    if (ch) { g.combo = ch + 1; g.reig = true; stats.reig++; for (const e of g.blocks) { e.b.chain = 0; e.b.chainT = 0; } }
     groups.push(g);
     applyIgnition(g, ents);
   }
@@ -615,10 +705,11 @@ function applyIgnition(g, ents) {
   shake = Math.max(shake, Math.min(12, 2 + n * 0.7 + (mult - 1) * 2));
   sfx.ignite(mult);
   buzz(mult > 1 ? [25, 30, 35] : 25);
-  if (mult >= 2) popup(mult + ' コンボ！', sx, sy - cell * 0.9, { size: 1.2 + Math.min(mult, 6) * 0.08, color: '#ffb84a', life: 1.0 });
+  if (g.reig) { g.reig = false; popup('再点火！ ' + mult + 'コンボ', sx, sy - cell * 0.9, { size: 1.25 + Math.min(mult, 6) * 0.08, color: '#ff8af0', life: 1.2 }); }
+  else if (mult >= 2) popup(mult + ' コンボ！', sx, sy - cell * 0.9, { size: 1.2 + Math.min(mult, 6) * 0.08, color: '#ffb84a', life: 1.0 });
   popup('+' + pts, sx, sy, { size: 0.9, color: '#ffffff', life: 0.8 });
-  // 点火したブロックを掴んでいたらドラッグ解除
-  for (const [id, d] of drags) if (d.b.state !== 'norm') endDrag(id);
+  // 点火して上昇を始めた塊のブロックを掴んでいたらドラッグ解除
+  for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 }
 
 // ===================== パーティクル・ポップアップ =====================
@@ -657,6 +748,10 @@ function locate(b) {
   for (const g of groups) { if (g.meteor) continue; for (const e of g.blocks) if (e.b === b) return { g, e }; }
   return null;
 }
+// 動かせるブロック: 通常ブロックはどこでも。燃えカス・点火ブロック（石化ブロック）は、地面に積まれているときと、
+// 推力が切れて落ちてくる塊の中（vy<=0）では通常ブロックと同じように動かせる。噴射中・上昇中の塊の点火ブロックは固定（エンジン部分）
+const stoneFree = g => g.vy <= 0 && !(g.fuel > 0);
+function canMove(b, loc) { return b.state === 'norm' || (loc.rest ? true : stoneFree(loc.g)); }
 function neighbor(loc, dir) {
   if (loc.rest) { const j = loc.i + dir; if (j < 0 || j >= rest[loc.c].length) return null; return { rest: true, c: loc.c, i: j, b: rest[loc.c][j] }; }
   const r = loc.e.r + dir;
@@ -672,30 +767,31 @@ function pick(x, y) {
   const c = clamp(Math.floor((x - fx) / cell), 0, COLS - 1);
   const row = (fb - y) / cell - 0.5;
   let best = null, bd = 0.85;
-  rest[c].forEach((b, i) => { const d = Math.abs(i + b.ay - row); if (d < bd && b.state === 'norm' && !b.dragging) { bd = d; best = b; } });
+  rest[c].forEach((b, i) => { const d = Math.abs(i + b.ay - row); if (d < bd && !b.dragging) { bd = d; best = b; } });
   for (const g of groups) {
     if (g.meteor) continue;
-    for (const e of g.blocks) { if (e.c !== c) continue; const d = Math.abs(g.y + e.r - row); if (d < bd && e.b.state === 'norm' && !e.b.dragging) { bd = d; best = e.b; } }
+    const free = stoneFree(g);
+    for (const e of g.blocks) { if (e.c !== c) continue; const d = Math.abs(g.y + e.r - row); if (d < bd && (e.b.state === 'norm' || free) && !e.b.dragging) { bd = d; best = e.b; } }
   }
   return best;
 }
 function processDrag(d) {
   const b = d.b;
   const loc = locate(b);
-  if (!loc || b.state !== 'norm') return false;
+  if (!loc || !canMove(b, loc)) return false;
   let swapped = 0;
   while (d.sub > 0.5) {
     const nb = neighbor(loc, 1);
-    if (nb && nb.b.state === 'norm' && !nb.b.dragging) { nb.b.ay += 1; doSwap(loc, nb); d.sub -= 1; swapped++; }
+    if (nb && canMove(nb.b, nb) && !nb.b.dragging) { nb.b.ay += 1; doSwap(loc, nb); d.sub -= 1; swapped++; }
     else { d.sub = Math.min(d.sub, 0.45); break; }
   }
   while (d.sub < -0.5) {
     const nb = neighbor(loc, -1);
-    if (nb && nb.b.state === 'norm' && !nb.b.dragging) { nb.b.ay -= 1; doSwap(loc, nb); d.sub += 1; swapped++; }
+    if (nb && canMove(nb.b, nb) && !nb.b.dragging) { nb.b.ay -= 1; doSwap(loc, nb); d.sub += 1; swapped++; }
     else { d.sub = Math.max(d.sub, -0.45); break; }
   }
   b.dragOff = clamp(d.sub, -0.45, 0.45);
-  if (swapped) { stats.swaps += swapped; d.swaps += swapped; sfx.tick(d.swaps); buzz(6); }
+  if (swapped) { stats.swaps += swapped; if (b.state !== 'norm') stats.stoneMoves += swapped; d.swaps += swapped; sfx.tick(d.swaps); buzz(6); }
   return true;
 }
 function endDrag(id) {
@@ -721,8 +817,12 @@ function onDown(e) {
     if (fastId === null) { fastId = e.pointerId; try { cv.setPointerCapture(e.pointerId); } catch (err) {} tone(300, 0.06, 'triangle', 0.06, 200); }
     return;
   }
-  if (state === 'title') { if (stateT > 0.25) startGame(); return; }
-  if (state === 'over') { if (stateT > 1.0) startGame(); return; }
+  if (state === 'title') { if (rkModalOpen()) return; if (stateT > 0.25) startGame(); return; }
+  if (state === 'over') { // リトライはボタンのみ（ランキング入力中の誤タップで次のゲームが始まらないように）
+    const blurred = rkBlur(), L = overLayout();
+    if (!blurred && stateT > 1.0 && inRect(x, y, W / 2, L.by, L.bw + 24, L.bh * 1.4)) startGame();
+    return;
+  }
   if (state !== 'play') return;
   const b = pick(x, y);
   if (!b) return;
@@ -750,18 +850,25 @@ cv.addEventListener('pointerup', onUp, { passive: false });
 cv.addEventListener('pointercancel', onUp, { passive: false });
 cv.addEventListener('lostpointercapture', e => { if (e.pointerId === fastId) fastId = null; else endDrag(e.pointerId); });
 window.addEventListener('blur', () => stopFast());
-const stop = e => { if (e.cancelable) e.preventDefault(); };
+const stop = e => {
+  const t = e.target, inRk = t && t.closest && t.closest('#rk');
+  // ランキングUI内: タップ(クリック)・入力欄・リストのスクロールはブラウザ既定動作を許可
+  if (inRk && (e.type === 'touchstart' || e.type === 'touchend' || t.tagName === 'INPUT' || (e.type === 'touchmove' && t.closest('.rk-list')))) return;
+  if (e.cancelable) e.preventDefault();
+};
 for (const ev of ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu'])
   document.addEventListener(ev, stop, { passive: false });
 document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 for (const ev of ['touchend', 'pointerup', 'click', 'keydown'])
   document.addEventListener(ev, unlockAudio, { passive: true, capture: true });
 document.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return; // ニックネーム入力中はショートカット無効
+  if (e.key === 'Escape' && rkModalOpen()) { rkCloseModal(); return; }
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') fastKey = true;
   else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (paused) resumeGame(); else pauseGame(); }
   else if (e.key === 'm' || e.key === 'M') setMuted(!muted);
 });
-document.addEventListener('keyup', e => { if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') fastKey = false; });
+document.addEventListener('keyup', e => { if (e.target && e.target.tagName === 'INPUT') return; if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') fastKey = false; });
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
@@ -792,11 +899,10 @@ function stepPlay(dt) {
       if (g.meteor) { g.vy = -fallSpeed() * (fastOn() ? P.FX : 1); g.y += g.vy * h; continue; }
       const w = g.blocks.length; let fire = 0, cm = 0;
       for (const e of g.blocks) { if (e.b.state === 'fire') fire += e.b.re ? P.RI : 1; cm |= 1 << e.c; }
-      let a = -P.G, term = P.TERM;
+      let a = -P.G, term = P.TERM, nc = 0; for (let m = cm; m; m &= m - 1) nc++;
       if (g.fuel > 0 && fire > 0) {
-        let nc = 0; for (let m = cm; m; m &= m - 1) nc++;
         a += P.TH * Math.pow(Math.min(1, fire / w * (1 + P.HB * Math.min(nc - 1, P.HC))), P.WP);
-      } else if (g.vy <= 0) { a = -P.GF; term = P.TF; } // 落ちてくる塊はふんわり（押し上げの猶予）
+      } else if (g.vy <= 0) { const fs = fallStage(nc); a = -fs.g; term = fs.t; } // 落ちてくる塊: 幅が広いほどふんわり（押し上げの猶予）
       g.fuel = Math.max(0, g.fuel - h);
       g.vy += a * h; if (g.vy < -term) g.vy = term === P.TERM ? -term : Math.min(-term, g.vy + P.G * 3 * h);
       g.y += g.vy * h;
@@ -829,6 +935,7 @@ function stepPlay(dt) {
     if (b.ay) { b.ay *= Math.exp(-24 * dt); if (Math.abs(b.ay) < 0.002) b.ay = 0; }
     if (b.flash > 0) b.flash = Math.max(0, b.flash - dt * 3);
     if (b.squash > 0) b.squash = Math.max(0, b.squash - dt * 4);
+    if (b.chainT > 0 && b.state === 'norm' && inRest) { b.chainT -= dt; if (b.chainT <= 0) { b.chainT = 0; b.chain = 0; } }
     b.t += dt;
     if (b.state === 'ash' && inRest) {
       b.t -= 2 * dt; // ashのtはカウントダウン
@@ -837,7 +944,7 @@ function stepPlay(dt) {
   });
 
   // ドラッグ中ブロックの妥当性
-  for (const [id, d] of drags) if (d.b.state !== 'norm' || !locate(d.b)) endDrag(id);
+  for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 
   for (let c = 0; c < COLS; c++) if (rest[c].length > ROWS) { gameOver(); break; }
 }
@@ -1015,7 +1122,7 @@ function drawHUD() {
     const sz = Math.min(vs * 0.85, vs * 0.85 * avail / textW(str, vs * 0.85));
     text(str, cxm, hudH * 0.5, sz * pulse, '#ffb84a');
   } else {
-    text('ハイスコア', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
+    text('自己ベスト', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
     text(String(Math.max(hi, score)), cxm, hudH * 0.64, vs * 0.75, '#fff27a');
   }
   drawHudBtn('pause'); drawHudBtn('fast');
@@ -1112,6 +1219,7 @@ function drawTitle() {
     ['飛んでいる途中でさらにそろえると', '#fff'],
     ['追加噴射でコンボ！', '#ffb84a'],
     ['落ちてくる塊を下から押し上げてもコンボ！', '#ffb84a'],
+    ['燃えカスも動かせる・再点火でもコンボ！', '#ff8af0'],
     ['右上の ▼ボタンを押している間は早送り', '#a9c8ff'],
     ['一番上からあふれたらゲームオーバー', '#ff8a9a'],
   ];
@@ -1125,41 +1233,328 @@ function drawTitle() {
   const gr = ctx.createLinearGradient(0, by - bh / 2, 0, by + bh / 2); gr.addColorStop(0, '#ffb347'); gr.addColorStop(1, '#ff5e3a');
   roundBtn(cx, by, bw, bh, gr); ctx.restore();
   text('タップしてスタート', cx, by, bh * 0.4, '#fff', { strokeColor: '#8a2400' });
-  if (hi > 0) text('ハイスコア  ' + hi, cx, by + bh * 0.95, ls, '#fff27a', { weight: 700 });
+  if (hi > 0) text('自己ベスト  ' + hi, cx, by + bh * 0.95, ls, '#fff27a', { weight: 700 });
   text('※ 名作パズルに着想を得たオリジナル試作品です', cx, H - 16, Math.min(12, W * 0.03), 'rgba(200,200,230,0.6)', { weight: 400, stroke: false });
 }
 let demoBlocks = [];
 for (let i = 0; i < 9; i++) { const b = newBlock(i % 3 === 0 ? 0 : (i % 3 === 1 ? 4 : 2)); demoBlocks.push(b); }
 demoBlocks.forEach((b, i) => { b.color = [0, 0, 0, 3, 3, 3, 4, 4, 4][i]; if (i % 3 === 0) b.state = 'fire'; });
 
+// ゲームオーバー画面のレイアウト（キャンバス描画とランキング欄(DOM)で共用）
+function overLayout() {
+  const s = Math.min(W * 0.1, 44), vs = Math.min(W * 0.1, 44), ls = Math.min(W * 0.038, 15);
+  const titleY = hudH + s * 0.62 + 6;
+  const scoreY = titleY + s * 0.62 + vs * 0.72;
+  const hiY = scoreY + vs * 0.62 + ls * 0.8;
+  const statY = hiY + ls * 1.35;
+  const bh = Math.round(clamp(H * 0.072, 46, 58)), bw = Math.min(W * 0.72, 320);
+  const by = H - Math.max(12, H * 0.02) - bh / 2;
+  return { s, vs, ls, titleY, scoreY, hiY, statY, pTop: Math.round(statY + ls * 0.9), pBot: Math.round(by - bh / 2 - 10), bw, bh, by };
+}
 function drawOver() {
   const a = Math.min(1, stateT * 2);
   ctx.fillStyle = `rgba(8,4,24,${0.82 * a})`; ctx.fillRect(0, 0, W, H);
   if (stateT < 0.3) return;
-  const cx = W / 2, s = Math.min(W * 0.11, 50);
+  const cx = W / 2, L = overLayout();
   ctx.save(); ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 20;
-  text('ゲームオーバー', cx, H * 0.25, s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
-  const ls = Math.min(W * 0.05, 22);
-  text('スコア', cx, H * 0.36, ls, '#a9a3d6', { weight: 700 });
-  text(String(score), cx, H * 0.36 + ls * 1.7, ls * 2.2, '#fff');
-  if (newHi) text('★ ハイスコア更新！ ★', cx, H * 0.36 + ls * 3.4, ls, '#fff27a');
-  else text('ハイスコア  ' + hi, cx, H * 0.36 + ls * 3.4, ls * 0.9, '#fff27a', { weight: 700 });
-  const y0 = H * 0.56;
-  text('打ち上げ成功  ' + stats.clears + ' 回', cx, y0, ls * 0.9, '#9ffcff', { weight: 700 });
-  text('消したブロック  ' + stats.cleared + ' 個', cx, y0 + ls * 1.5, ls * 0.9, '#fff', { weight: 700 });
-  text('最大コンボ  ' + maxCombo, cx, y0 + ls * 3, ls * 0.9, '#ffb84a', { weight: 700 });
-  text('押し上げ  ' + stats.pushes + ' 回', cx, y0 + ls * 4.5, ls * 0.9, '#ffd27a', { weight: 700 });
-  text('到達レベル  ' + level, cx, y0 + ls * 6, ls * 0.9, '#7affb0', { weight: 700 });
+  text('ゲームオーバー', cx, L.titleY, L.s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
+  const sw = textW(String(score), L.vs);
+  text(String(score), cx, L.scoreY, L.vs, '#fff');
+  text('スコア', cx - sw / 2 - 8, L.scoreY + L.vs * 0.12, L.ls, '#a9a3d6', { weight: 700, align: 'right' });
+  if (newHi) text('★ 自己ベスト更新！ ★', cx, L.hiY, L.ls * 1.1, '#fff27a');
+  else text('自己ベスト  ' + hi, cx, L.hiY, L.ls, '#fff27a', { weight: 700 });
+  const st = '打ち上げ ' + stats.clears + '回　押し上げ ' + stats.pushes + '回　最大コンボ ' + maxCombo + '　Lv.' + level;
+  let ss = L.ls * 0.9; const tw = textW(st, ss, 700); if (tw > W * 0.94) ss *= W * 0.94 / tw;
+  text(st, cx, L.statY, ss, '#9ffcff', { weight: 700 });
   if (stateT > 1.0) {
-    const pulse = 1 + 0.05 * Math.sin(time * 5);
-    const bw = Math.min(W * 0.72, 320) * pulse, bh = Math.min(60, H * 0.075) * pulse, by = H * 0.84;
-    const gr = ctx.createLinearGradient(0, by - bh / 2, 0, by + bh / 2); gr.addColorStop(0, '#6ad8ff'); gr.addColorStop(1, '#3a7aff');
-    roundBtn(cx, by, bw, bh, gr);
-    text('タップしてリトライ', cx, by, bh * 0.4, '#fff', { strokeColor: '#0a2a6a' });
+    const pulse = 1 + 0.04 * Math.sin(time * 5), bw = L.bw * pulse, bh = L.bh * pulse;
+    const gr = ctx.createLinearGradient(0, L.by - bh / 2, 0, L.by + bh / 2); gr.addColorStop(0, '#6ad8ff'); gr.addColorStop(1, '#3a7aff');
+    roundBtn(cx, L.by, bw, bh, gr);
+    text('リトライ', cx, L.by, bh * 0.42, '#fff', { strokeColor: '#0a2a6a' });
+  }
+}
+
+// ===================== オンラインランキング（Firebase REST・SDKなし） =====================
+// 公開URL(kanata-games.github.io)のときだけ本番コレクション、それ以外(テストURL/localhost)は scores_test
+const RK_KEY = 'AIzaSyD3uqYSe0GC5Ko61A0pjQ1fFQcQwZFV4vk', RK_PID = 'meteo-flick';
+const RK_COL = location.hostname === 'kanata-games.github.io' ? 'scores' : 'scores_test';
+const RK_DB = 'https://firestore.googleapis.com/v1/projects/' + RK_PID + '/databases/(default)/documents';
+const rkEl = id => document.getElementById(id);
+const rkUI = { root: rkEl('rk'), open: rkEl('rkOpen'), modal: rkEl('rkModal'), listT: rkEl('rkListT'), subT: rkEl('rkSubT'), reloadT: rkEl('rkReloadT'), close: rkEl('rkClose'),
+  over: rkEl('rkOver'), win: rkEl('rkWin'), winRank: rkEl('rkWinRank'), name: rkEl('rkName'), send: rkEl('rkSend'), st: rkEl('rkSt'), pred: rkEl('rkPred'), listO: rkEl('rkListO'), subO: rkEl('rkSubO'), all: rkEl('rkAll'), allT: rkEl('rkAllT') };
+const rk = { auto: null, autoName: '', best: 0, qual: false, rank: 0, top: null, topAt: 0, loading: null, game: 0, score: 0, t: 0, lv: 1, uid: '', sent: false, sending: false, view: '', pos: '' };
+const RK_ENV = RK_COL === 'scores' ? '' : 'テスト用ランキング';
+rkUI.subT.textContent = 'TOP10' + (RK_ENV ? '（' + RK_ENV + '）' : ''); rkUI.subO.textContent = RK_ENV;
+
+// 妥当性チェック: 実際の得点計算から見て、プレイ時間に対してありえないスコアは送らない
+// （1秒あたり 1000点×レベル倍率 ＋ 初期盤面分 1500点。早送りボーナスは約20点/秒、通常プレイは数十〜百数十点/秒）
+const rkCap = (t, lv) => Math.floor((1500 + Math.max(0, t) * 1000) * (1 + (Math.max(1, lv) - 1) * 0.1));
+const rkScoreOk = () => Number.isInteger(rk.score) && rk.score > 0 && rk.score <= 9999999 && rk.score <= rkCap(rk.t, rk.lv);
+const rkClean = s => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').replace(/\s+/g, ' ').trim();
+function rkSavedName() { try { return rkClean(localStorage.getItem('meteoflick_name')).slice(0, 12); } catch (e) { return ''; } }
+
+function rkFetch(url, opt, ms) {
+  const ac = typeof AbortController === 'function' ? new AbortController() : null;
+  const tm = setTimeout(() => { if (ac) ac.abort(); }, ms || 10000);
+  return fetch(url, Object.assign({ cache: 'no-store' }, opt, ac ? { signal: ac.signal } : {}))
+    .then(r => r.text().then(tx => {
+      let j = null; try { j = JSON.parse(tx); } catch (e) {}
+      if (!r.ok) { const er = j && (Array.isArray(j) ? j[0] && j[0].error : j.error); const e = new Error((er && (er.status || er.message)) || 'HTTP ' + r.status); e.status = r.status; throw e; }
+      return j;
+    }))
+    .then(j => { clearTimeout(tm); return j; }, e => { clearTimeout(tm); throw e; });
+}
+// 匿名認証（Identity Toolkit REST）。トークンは localStorage に保存し、期限切れなら更新する
+function rkSaveAuth(a) { try { localStorage.setItem('meteoflick_auth', JSON.stringify(a)); } catch (e) {} return a; }
+function rkAuth(force) {
+  let a = null; try { a = JSON.parse(localStorage.getItem('meteoflick_auth') || 'null'); } catch (e) {}
+  if (a && a.idToken && a.uid && !force && a.exp > Date.now() + 60000) return Promise.resolve(a);
+  const signUp = () => rkFetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + RK_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"returnSecureToken":true}' })
+    .then(j => rkSaveAuth({ idToken: j.idToken, refreshToken: j.refreshToken, uid: j.localId, exp: Date.now() + (+j.expiresIn || 3600) * 1000 }));
+  if (!a || !a.refreshToken) return signUp();
+  return rkFetch('https://securetoken.googleapis.com/v1/token?key=' + RK_KEY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.refreshToken) })
+    .then(j => rkSaveAuth({ idToken: j.id_token, refreshToken: j.refresh_token, uid: j.user_id, exp: Date.now() + (+j.expires_in || 3600) * 1000 }),
+      e => { if (e.status >= 400 && e.status < 500) return signUp(); throw e; }); // 更新トークンが無効なら作り直す
+}
+// 上位10件（認証不要）
+function rkLoadTop(force) {
+  if (!force && rk.top && Date.now() - rk.topAt < 20000) return Promise.resolve(rk.top);
+  if (!force && rk.loading) return rk.loading;
+  const q = { structuredQuery: { from: [{ collectionId: RK_COL }], orderBy: [{ field: { fieldPath: 'score' }, direction: 'DESCENDING' }], limit: 10 } };
+  const p = rkFetch(RK_DB + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(q) }, 9000).then(arr => {
+    const top = [];
+    for (const x of Array.isArray(arr) ? arr : []) {
+      const d = x && x.document, f = d && d.fields; if (!f) continue;
+      const sc = parseInt(f.score && (f.score.integerValue != null ? f.score.integerValue : f.score.doubleValue), 10);
+      top.push({ id: String(d.name || '').split('/').pop(), name: rkClean(f.name && f.name.stringValue).slice(0, 12) || '？', score: sc > 0 ? sc : 0 });
+    }
+    rk.top = top; rk.topAt = Date.now(); return top;
+  });
+  rk.loading = p; const done = () => { if (rk.loading === p) rk.loading = null; }; p.then(done, done);
+  return p;
+}
+// 登録済みの自分のドキュメント（ドキュメントID = 匿名uid）を取得。未登録なら null
+function rkGetMine(uid) { // batchGet: 未登録でも 404 にならない（コンソールを汚さない）
+  return rkFetch(RK_DB + ':batchGet', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documents: ['projects/' + RK_PID + '/databases/(default)/documents/' + RK_COL + '/' + uid] }) }, 8000).then(arr => {
+    const x = (Array.isArray(arr) ? arr : [arr]).find(y => y && (y.found || y.missing));
+    if (!x) throw new Error('bad response');
+    const f = x.found && x.found.fields; if (!f) return null;
+    return { score: parseInt(f.score && f.score.integerValue, 10) || 0, name: rkClean(f.name && f.name.stringValue) };
+  });
+}
+function rkCachedUid() { try { const a = JSON.parse(localStorage.getItem('meteoflick_auth') || 'null'); return a && a.uid || ''; } catch (e) { return ''; } }
+// 書き込み（Firestore REST commit）。1人1件: scores/{uid} を作成または更新（登録済みスコア以上のときだけ）。
+// 毎回 name/score/uid と createdAt(=サーバー時刻 REQUEST_TIME) の4項目をそろえて送る
+function rkWrite(name, sc) {
+  const send = a => rkFetch(RK_DB + ':commit', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + a.idToken },
+    body: JSON.stringify({ writes: [{ update: { name: 'projects/' + RK_PID + '/databases/(default)/documents/' + RK_COL + '/' + a.uid,
+      fields: { name: { stringValue: name }, score: { integerValue: String(sc) }, uid: { stringValue: a.uid } } },
+      updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }] }] }) }, 12000).then(() => a.uid);
+  const attempt = a => rkGetMine(a.uid).then(old => {
+    if (old && old.score > sc) { const e = new Error('lower'); e.lower = old.score; throw e; } // 登録済みの方が高い → 送らない
+    return send(a);
+  });
+  return rkAuth(false).then(a => attempt(a).catch(e => { if (e.status === 401 || e.status === 403) return rkAuth(true).then(attempt); throw e; }));
+}
+
+// 全体順位: score > 自己ベスト のドキュメント数 + 1（同点は同順位）と総数を runAggregationQuery の count で取得
+function rkCount(gt) {
+  const q = { from: [{ collectionId: RK_COL }] };
+  if (gt != null) q.where = { fieldFilter: { field: { fieldPath: 'score' }, op: 'GREATER_THAN', value: { integerValue: String(gt) } } };
+  return rkFetch(RK_DB + ':runAggregationQuery', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: q, aggregations: [{ alias: 'n', count: {} }] } }) }, 9000).then(arr => {
+    const r = (Array.isArray(arr) ? arr : [arr]).find(x => x && x.result && x.result.aggregateFields);
+    if (!r) throw new Error('no result');
+    return parseInt(r.result.aggregateFields.n.integerValue, 10) || 0;
+  });
+}
+function rkOverall(best) { return Promise.all([rkCount(best), rkCount(null)]).then(a => ({ rank: a[0] + 1, total: Math.max(a[1], a[0] + 1) })); }
+function rkAllText(best, r) { return 'あなたの自己ベスト（' + best + '点）は全体' + r.rank + '位（' + r.total + '人中）'; }
+function rkSetAll(el, msg, cls) { el.textContent = msg; el.className = 'rk-all' + (cls ? ' ' + cls : ''); }
+function rkShowOverall(g, best) {
+  if (!best) { rkSetAll(rkUI.all, ''); return; }
+  rkSetAll(rkUI.all, '全体順位を確認中…', 'wait');
+  rkOverall(best).then(r => { if (g === rk.game) { rk.overall = r; rkSetAll(rkUI.all, rkAllText(best, r), ''); } },
+    () => { if (g === rk.game) rkSetAll(rkUI.all, '全体順位を取得できませんでした', 'ng'); });
+}
+function rkRow(rank, name, sc, me) {
+  const li = document.createElement('li');
+  if (typeof rank === 'number' && rank <= 3) li.classList.add('r' + rank);
+  if (me) li.classList.add('me');
+  const r = document.createElement('span'), n = document.createElement('span'), s = document.createElement('span');
+  r.className = 'rk-r'; n.className = 'rk-n'; s.className = 'rk-s';
+  r.textContent = typeof rank === 'number' ? rank + '位' : rank; n.textContent = name; s.textContent = String(sc);
+  li.appendChild(r); li.appendChild(n); li.appendChild(s);
+  return li;
+}
+function rkMsg(ol, msg) { ol.textContent = ''; const li = document.createElement('li'); li.className = 'msg'; li.textContent = msg; ol.appendChild(li); }
+function rkRender(ol, top, meId, extra, ins) {
+  ol.textContent = '';
+  if (ins) { top = top.slice(); top.splice(ins.rank - 1, 0, ins); top = top.slice(0, 10); } // 登録前: 入る位置に「あなた」を仮表示
+  let pr = 0, ps = null;
+  top.forEach((e, i) => { if (e.score !== ps) { pr = i + 1; ps = e.score; } const li = rkRow(pr, e.name, e.score, e === ins || (!!meId && e.id === meId)); if (e === ins) li.classList.add('pend'); ol.appendChild(li); });
+  if (extra) ol.appendChild(rkRow('圏外', extra.name, extra.score, true));
+  if (!top.length && !extra) rkMsg(ol, 'まだ登録がありません');
+  const me = ol.querySelector('.me'); if (me && me.scrollIntoView) try { me.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+}
+function rkTieRank(top, sc) { return 1 + top.filter(e => e.score > sc).length; } // 同点は同順位
+function rkPredict(top) { // このスコアでの順位予想（同点は後ろ扱い）。top は自分の登録分を除いたもの
+  let n = 0; for (const e of top) if (e.score >= rk.score) n++;
+  return n + 1;
+}
+function rkSetSt(el, msg, cls) { el.textContent = msg; el.className = cls || ''; }
+
+// タイトル画面のランキング
+function rkModalOpen() { return !rkUI.modal.hidden; }
+function rkCloseModal() { rkUI.modal.hidden = true; }
+function rkShowTitle(force) {
+  rkUI.modal.hidden = false;
+  if (!rk.top || force) rkMsg(rkUI.listT, '読み込み中…');
+  const uid = rkCachedUid();
+  rkLoadTop(force).then(top => {
+    rkRender(rkUI.listT, top, uid || null);
+    if (!uid) { rkSetAll(rkUI.allT, ''); return; }
+    if (!rkUI.allT.textContent) rkSetAll(rkUI.allT, '全体順位を確認中…', 'wait');
+    rkGetMine(uid).then(m => m && m.score > 0 ? rkOverall(m.score).then(r => rkSetAll(rkUI.allT, rkAllText(m.score, r), '')) : rkSetAll(rkUI.allT, ''))
+      .catch(() => rkSetAll(rkUI.allT, '全体順位を取得できませんでした', 'ng'));
+  }, () => { rkMsg(rkUI.listT, 'ランキングを取得できませんでした（通信環境を確認して「再読み込み」）'); rkSetAll(rkUI.allT, ''); });
+}
+rkUI.open.addEventListener('click', () => rkShowTitle(false));
+rkUI.close.addEventListener('click', rkCloseModal);
+rkUI.reloadT.addEventListener('click', () => rkShowTitle(true));
+rkUI.modal.addEventListener('click', e => { if (e.target === rkUI.modal) rkCloseModal(); });
+
+// ゲームオーバー画面:
+//  ・有効なスコアが登録済みの記録を上回れば（または未登録なら）自動保存（名前 = 覚えているニックネーム or 「ななし」）→ 全員が全体順位に入る
+//  ・トップ10に入るときだけニックネーム入力（名前の設定・変更 = 同点での更新）
+//  ・全員に全体順位（あなたの自己ベストは全体N位（M人中））
+function rkOnGameOver() {
+  rk.game++; rk.score = score; rk.t = playT; rk.lv = level; rk.uid = rkCachedUid(); rk.sent = false; rk.sending = false; rk.qual = false; rk.rank = 0;
+  rk.auto = null; rk.autoName = ''; rk.best = 0; rk.mine = null; rk.overall = null;
+  const g = rk.game, ok = rkScoreOk(), uid = rk.uid;
+  rkUI.win.hidden = true;
+  rkUI.name.value = rkSavedName(); rkUI.name.disabled = false;
+  rkUI.send.disabled = false; rkUI.send.textContent = 'ランキングに登録';
+  rkSetSt(rkUI.st, ''); rkSetSt(rkUI.pred, ok || score <= 0 ? '' : 'このスコアはランキング対象外です', 'outr'); rkSetAll(rkUI.all, '');
+  rkMsg(rkUI.listO, '読み込み中…');
+  Promise.all([rkLoadTop(true), uid ? rkGetMine(uid) : null]).then(([top, mine]) => {
+    if (g !== rk.game) return;
+    rk.mine = mine; rk.best = mine ? mine.score : 0;
+    const others = uid ? top.filter(e => e.id !== uid) : top; // 1人1件なので自分の登録分は除いて順位を見る
+    const n = rkPredict(others); // 他の人が10件未満なら有効なスコアは必ず入る
+    const beats = ok && (!mine || rk.score > mine.score);
+    if (ok && !beats) {
+      rkRender(rkUI.listO, top, uid);
+      rkSetSt(rkUI.pred, '登録済みの記録（' + mine.score + '点）を超えていません', 'outr');
+    } else if (beats && n <= 10) {
+      rk.qual = true; rk.rank = 1 + others.filter(e => e.score > rk.score).length; // 表示は同点同順位
+      rkUI.winRank.textContent = rk.rank + '位'; rkUI.win.hidden = false;
+      rkRender(rkUI.listO, others, null, null, { rank: n, name: 'あなた', score: rk.score });
+      sfx.level(); buzz([30, 40, 30]);
+    } else {
+      rkRender(rkUI.listO, top, uid || null);
+      if (ok) rkSetSt(rkUI.pred, 'トップ10まであと ' + (top[9].score - rk.score + 1) + '点', 'outr');
+    }
+    if (beats) rkAutoSave(g, mine); else rkShowOverall(g, rk.best);
+  }, () => {
+    if (g !== rk.game) return;
+    rkMsg(rkUI.listO, 'ランキングを取得できませんでした');
+    if (ok) rkSetSt(rkUI.pred, 'オフラインのため記録は保存されません', 'outr');
+  });
+}
+function rkAutoSave(g, mine) {
+  const name = rkSavedName() || (mine && mine.name) || 'ななし';
+  rkSetSt(rkUI.st, '記録を保存中…', 'wait');
+  rk.auto = rkWrite(name, rk.score).then(id => {
+    if (g !== rk.game) return id;
+    rk.uid = id; rk.autoName = name; rk.best = rk.score;
+    if (!rk.sending && !rk.sent) rkSetSt(rkUI.st, rk.qual ? '「' + name + '」で保存しました（名前を変更できます）' : '記録を保存しました', 'ok');
+    rkLoadTop(true).then(top => {
+      if (g !== rk.game || rk.sending || rk.sent) return;
+      const i = top.findIndex(e => e.id === id);
+      if (rk.qual && i >= 0) { rkRender(rkUI.listO, top, id); rkUI.winRank.textContent = rkTieRank(top, rk.score) + '位'; }
+      else if (!rk.qual) rkRender(rkUI.listO, top, id);
+    }, () => {});
+    rkShowOverall(g, rk.score);
+    return id;
+  }, e => {
+    if (g === rk.game && !rk.sending && !rk.sent) rkSetSt(rkUI.st, e && e.lower ? '' : '記録を保存できませんでした', 'ng');
+    if (g === rk.game) rkShowOverall(g, e && e.lower ? e.lower : rk.best);
+    throw e;
+  });
+  rk.auto.catch(() => {});
+}
+function rkSubmit() {
+  if (rk.sent || rk.sending || state !== 'over' || !rk.qual || !rkScoreOk()) return;
+  const name = rkClean(rkUI.name.value);
+  if (!name) { rkSetSt(rkUI.st, 'ニックネームを入力してください', 'ng'); rkUI.name.focus(); return; }
+  if (name.length > 12) { rkSetSt(rkUI.st, 'ニックネームは12文字までです', 'ng'); return; }
+  rkUI.name.value = name; rkBlur();
+  try { localStorage.setItem('meteoflick_name', name); } catch (e) {}
+  const g = rk.game, sc = rk.score;
+  rk.sending = true; rkUI.send.disabled = true; rkUI.name.disabled = true; rkUI.send.textContent = '送信中…';
+  rkSetSt(rkUI.st, '送信中…', 'wait');
+  // 自動保存を待ってから、名前が違えば同点で更新（同じ名前なら送り直さない）
+  (rk.auto || Promise.reject(0)).then(id => (name === rk.autoName && id) ? id : rkWrite(name, sc), () => rkWrite(name, sc)).then(id => {
+    if (g !== rk.game) return;
+    rk.uid = id; rk.autoName = name; rk.best = Math.max(rk.best, sc);
+    rk.sending = false; rk.sent = true; rkUI.send.textContent = '登録しました';
+    rkSetSt(rkUI.st, '登録しました！', 'ok');
+    if (!rk.overall) rkShowOverall(g, sc);
+    return rkLoadTop(true).then(top => {
+      if (g !== rk.game) return;
+      const i = top.findIndex(e => e.id === id);
+      rkRender(rkUI.listO, top, id, i >= 0 ? null : { name, score: sc });
+      if (i >= 0) rkUI.winRank.textContent = rkTieRank(top, sc) + '位';
+      rkSetSt(rkUI.pred, i >= 0 ? rkTieRank(top, sc) + '位にランクイン！' : '（その間に他の人に抜かれました）', i >= 0 ? 'in' : 'outr');
+    }, () => { if (g === rk.game) rkMsg(rkUI.listO, 'ランキングを取得できませんでした'); });
+  }, e => {
+    if (g !== rk.game) return;
+    rk.sending = false; rkUI.send.disabled = false; rkUI.name.disabled = false; rkUI.send.textContent = 'もう一度送信';
+    if (e && e.lower) { rk.qual = false; rkUI.send.textContent = '登録済み'; rkUI.send.disabled = true; rkUI.name.disabled = true; rkSetSt(rkUI.st, '登録済みの記録（' + e.lower + '点）の方が高いため更新しません', 'outr'); return; }
+    rkSetSt(rkUI.st, '失敗しました' + (e && e.status ? '（' + e.status + '）' : '（通信エラー）'), 'ng');
+  });
+}
+rkUI.send.addEventListener('click', rkSubmit);
+rkUI.name.addEventListener('input', () => { if (rkUI.st.className === 'ng') rkSetSt(rkUI.st, ''); });
+rkUI.name.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); rkSubmit(); } });
+function rkBlur() { const a = document.activeElement; if (a && a === rkUI.name) { a.blur(); return true; } return false; }
+// iOSのキーボードで入力欄が隠れる場合はランキング欄ごと持ち上げる
+function rkKeyboard() {
+  const vv = window.visualViewport;
+  rkUI.root.style.transform = '';
+  if (!vv || document.activeElement !== rkUI.name) { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); return; }
+  const r = rkUI.name.getBoundingClientRect(), bottom = vv.offsetTop + vv.height - 10;
+  if (r.bottom > bottom) rkUI.root.style.transform = 'translateY(' + Math.round(bottom - r.bottom) + 'px)';
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', rkKeyboard); visualViewport.addEventListener('scroll', rkKeyboard); }
+rkUI.name.addEventListener('focus', () => setTimeout(rkKeyboard, 350));
+rkUI.name.addEventListener('blur', () => setTimeout(rkKeyboard, 50));
+
+// 画面状態に合わせて表示・配置（毎フレーム呼ぶ。変化があるときだけDOMを触る）
+function rkSync() {
+  const v = state === 'title' ? 'title' : state === 'over' && stateT > 0.5 ? 'over' : '';
+  if (v !== rk.view) {
+    rk.view = v;
+    rkUI.open.hidden = v !== 'title';
+    rkUI.over.hidden = v !== 'over';
+    if (v !== 'title') rkUI.modal.hidden = true;
+    if (v !== 'over') rkBlur();
+    rk.pos = '';
+  }
+  let pos = '';
+  if (v === 'title') pos = 'T' + Math.round(Math.max(8, fx - 2)) + ',' + Math.round(BTN.y - 22);
+  else if (v === 'over') { const L = overLayout(), side = Math.max(8, Math.round((W - Math.min(W - 16, 400)) / 2)); pos = 'O' + side + ',' + L.pTop + ',' + Math.max(64, L.pBot - L.pTop); }
+  if (pos !== rk.pos) {
+    rk.pos = pos; const a = pos.slice(1).split(',');
+    if (v === 'title') { rkUI.open.style.left = a[0] + 'px'; rkUI.open.style.top = a[1] + 'px'; }
+    else if (v === 'over') { const s = rkUI.over.style; s.left = s.right = a[0] + 'px'; s.top = a[1] + 'px'; s.height = a[2] + 'px'; }
   }
 }
 
 function draw() {
+  rkSync();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawBg();
   if (state === 'title') { drawTitle(); drawHudBtn('mute'); return; }
@@ -1220,13 +1615,16 @@ window.__meteos = {
     step: (dt, fx) => { time += dt; stateT += dt; if (state === 'play') stepPlay(dt); if (fx) updateFx(dt); else { particles.length = 0; popups.length = 0; flyaways.length = 0; } },
     findMatches, key },
   spawn: (c, ci) => spawnMeteor(c, ci),
+  fallStage, FALL_W, CHAIN_T,
+  restInfo: c => rest[c].map(b => ({ s: b.state, c: b.color, chain: b.chain, chainT: +b.chainT.toFixed(2), drag: b.dragging })),
   colors: c => rest[c].map(b => b.state === 'norm' ? b.color : b.state),
   cellCenter: (c, row) => ({ x: fx + (c + 0.5) * cell, y: fb - (row + 0.5) * cell }),
   info: () => ({ state, score, level, cell, heights: rest.map(c => c.length), groups: groups.map(g => { const cm = gcols(g); let gap = Infinity, top = -Infinity; for (const [c, r] of cm) { gap = Math.min(gap, g.y + r.min - rest[c].length); top = Math.max(top, g.y + r.max + 1); }
     return { meteor: g.meteor, y: +g.y.toFixed(2), vy: +g.vy.toFixed(2), n: g.blocks.length, combo: g.combo, fuel: +g.fuel.toFixed(2), gap: +gap.toFixed(2), top: +top.toFixed(2), cols: [...cm.keys()].sort().join(''), fire: g.blocks.filter(e => e.b.state === 'fire').length }; }), stats: Object.assign({}, stats), maxCombo, drags: drags.size, paused, muted, ftop, fx, fall: fallSpeed(), spawnIv: spawnInterval(), fast: fastOn(), fastId }),
   gameOver,
   pause: pauseGame, resume: resumeGame, toTitle, setMuted,
-  btns: () => ({ pause: { x: BTN.pause, y: BTN.y }, mute: { x: BTN.mute, y: BTN.y }, fast: { x: BTN.fast, y: BTN.y }, size: BTN.s, hudH, pauseLayout: pauseLayout() }),
+  btns: () => ({ pause: { x: BTN.pause, y: BTN.y }, mute: { x: BTN.mute, y: BTN.y }, fast: { x: BTN.fast, y: BTN.y }, size: BTN.s, hudH, pauseLayout: pauseLayout(), retry: { x: W / 2, y: overLayout().by } }),
+  rank: { col: RK_COL, cap: rkCap, info: () => ({ col: RK_COL, newHi, hi, qual: rk.qual, rank: rk.rank, score: rk.score, t: rk.t, lv: rk.lv, cap: rkCap(rk.t, rk.lv), ok: rkScoreOk(), docId: rk.uid, uid: rk.uid, best: rk.best, autoName: rk.autoName, overall: rk.overall, sent: rk.sent, sending: rk.sending, view: rk.view, top: rk.top }), loadTop: f => rkLoadTop(f), overall: b => rkOverall(b) },
   audio: () => ({ state: AC ? AC.state : 'none', muted, unlocked: audioUnlocked }),
   check: () => { // 整合性チェック（重複・重なり・消失・異常状態）
     const seen = new Set(); let dup = 0, overlap = 0, gg = 0, cellDup = 0, restFire = 0, bad = 0;

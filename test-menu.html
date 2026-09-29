@@ -1124,7 +1124,8 @@ function stepPlay(dt) {
     if (currentMode === 'tempest' && stormActive) {
       stormPulse -= dt * (fast ? 1.25 : 1);
       if (stormPulse <= 0) {
-        stormPulse += 0.60;
+        const pulseIv = stageEndless ? Math.max(0.34, 0.60 - (level - 1) * 0.035) : 0.60;
+        stormPulse += pulseIv;
         spawnTempestPulse();
       }
     } else {

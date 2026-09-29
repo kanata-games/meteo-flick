@@ -824,6 +824,12 @@ function onDown(e) {
     const L = titleLayout();
     if (inRect(x, y, L.classic.x, L.classic.y, L.bw, L.bh * 1.15)) { currentMode = 'classic'; startGame(); }
     else if (inRect(x, y, L.planet.x, L.planet.y, L.bw, L.bh * 1.15)) { state = 'planet'; stateT = 0; }
+    else if (inRect(x, y, L.howto.x, L.howto.y, L.howto.w, L.howto.h * 1.3)) { state = 'howto'; stateT = 0; }
+    return;
+  }
+  if (state === 'howto') {
+    const L = howToLayout();
+    if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
   if (state === 'planet') {
@@ -1209,8 +1215,14 @@ function titleLayout() {
   return {
     bw, bh,
     classic: { x: W / 2, y: cy },
-    planet: { x: W / 2, y: cy + bh * 1.42 }
+    planet: { x: W / 2, y: cy + bh * 1.42 },
+    howto: { x: W / 2, y: cy + bh * 2.62, w: Math.min(W * 0.56, 250), h: Math.round(bh * 0.72) }
   };
+}
+
+function howToLayout() {
+  const bh = Math.round(clamp(H * 0.068, 46, 58));
+  return { back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.62, 260), h: bh } };
 }
 
 function planetLayout() {
@@ -1257,8 +1269,60 @@ function drawTitle() {
   text('PLANET', L.planet.x, L.planet.y - L.bh * 0.09, L.bh * 0.35, '#dff7ff', { strokeColor: '#171044' });
   text('惑星ステージ / TEST', L.planet.x, L.planet.y + L.bh * 0.25, L.bh * 0.17, '#b9b2ef', { weight: 700, stroke: false });
 
-  if (hi > 0) text('CLASSIC BEST  ' + hi, cx, L.planet.y + L.bh * 0.92, Math.min(15, W * 0.037), '#fff27a', { weight: 700 });
+  roundBtn(L.howto.x, L.howto.y, L.howto.w, L.howto.h, 'rgba(255,255,255,0.08)');
+  rr(ctx, L.howto.x - L.howto.w / 2, L.howto.y - L.howto.h / 2, L.howto.w, L.howto.h, L.howto.h / 2);
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(190,180,255,0.42)'; ctx.stroke();
+  text('遊び方', L.howto.x, L.howto.y, L.howto.h * 0.38, '#e8e6ff', { strokeColor: '#171044' });
+
+  if (hi > 0) text('CLASSIC BEST  ' + hi, cx, L.howto.y + L.howto.h * 0.95, Math.min(15, W * 0.037), '#fff27a', { weight: 700 });
   text('PHASE 1 TEST BUILD', cx, H - 16, Math.min(11, W * 0.028), 'rgba(200,200,230,0.55)', { weight: 500, stroke: false });
+}
+
+function drawHowTo() {
+  ctx.fillStyle = 'rgba(8,4,24,0.50)'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  const ts = Math.min(W * 0.085, 40);
+  ctx.save(); ctx.shadowColor = '#ff8a2a'; ctx.shadowBlur = 18;
+  text('遊び方', cx, H * 0.10, ts, '#ffe27a', { strokeColor: '#5a1a00' }); ctx.restore();
+
+  const main = [
+    ['① ブロックは縦にスライドして入れかえる', '#ffffff'],
+    ['② 同じ色を縦か横に3つそろえる', '#ffd24a'],
+    ['③ 点火して、上の塊ごと宇宙へ打ち上がる！', '#9ffcff'],
+  ];
+  const sub = [
+    ['画面の上まで飛ばせば消えてボーナス', '#ffffff'],
+    ['飛んでいる途中でさらにそろえると追加噴射でコンボ', '#ffb84a'],
+    ['落ちてくる塊を下から押し上げてもコンボ', '#ffb84a'],
+    ['燃えカスも動かせる・再点火でもコンボ', '#ff8af0'],
+    ['右上の ▼ を押している間は早送り＋ボーナス', '#a9c8ff'],
+    ['一番上からあふれたらゲームオーバー', '#ff8a9a'],
+  ];
+
+  const mw = Math.min(W * 0.90, 410);
+  const top = H * 0.18;
+  const mainH = Math.min(58, H * 0.072);
+  main.forEach((it, i) => {
+    const y = top + i * (mainH + 8);
+    rr(ctx, cx - mw / 2, y - mainH / 2, mw, mainH, 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(190,180,255,0.28)'; ctx.stroke();
+    text(it[0], cx, y, Math.min(16, W * 0.039), it[1], { weight: 800, stroke: false });
+  });
+
+  let y = top + main.length * (mainH + 8) + 8;
+  const fs = Math.min(14, W * 0.035);
+  for (const [line, color] of sub) {
+    text('• ' + line, cx, y, fs, color, { weight: 700, stroke: false });
+    y += fs * 1.75;
+  }
+  text('まずは触ってみるだけでもOK。細かいコツは遊びながら分かる設計です。', cx, Math.min(y + fs * 0.7, H * 0.84), Math.min(12, W * 0.03), '#a9a3d6', { weight: 600, stroke: false });
+
+  const L = howToLayout();
+  roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.45)');
+  rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,180,255,0.55)'; ctx.stroke();
+  text('タイトルへ戻る', L.back.x, L.back.y, L.back.h * 0.32, '#e8e6ff', { strokeColor: '#171044' });
 }
 
 function drawPlanetSelect() {
@@ -1611,6 +1675,7 @@ function draw() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawBg();
   if (state === 'title') { drawTitle(); drawHudBtn('mute'); return; }
+  if (state === 'howto') { drawHowTo(); drawHudBtn('mute'); return; }
   if (state === 'planet') { drawPlanetSelect(); drawHudBtn('mute'); return; }
   drawHUDBg();
   ctx.save();

@@ -370,6 +370,65 @@ const planetUnlocked = id =>
   (id === 'tempest' && planetClear.gravitas) ||
   (id === 'prismaria' && planetClear.tempest) ||
   (id === 'volca' && planetClear.prismaria);
+let storyPage = 0, archiveTab = 0, archivePage = 0;
+const STORY_LOGS = [
+  {
+    title: 'PROLOGUE', sub: '落下開始', req: null,
+    body: '複数の惑星圏で、通常の天体現象では説明できない規模のメテオ降下が観測された。原因はまだ分からない。まずは各惑星の軌道を安定させ、観測記録を集める。'
+  },
+  {
+    title: '観測記録 01', sub: 'ルナ・ヴェイル', req: 'luna',
+    body: '低重力圏。打ち上げられたメテオ群は長く宙に留まり、わずかな再点火でも軌道を大きく変えた。ここでは「飛ばす」より「飛ばし続ける」感覚が重要らしい。'
+  },
+  {
+    title: '観測記録 02', sub: 'グラヴィタス', req: 'gravitas',
+    body: '高重力圏で、異常に重いアンカー・メテオを確認。通常の塊に混ざるだけで推力を奪う。自然物と呼ぶには、あまりにも性質がはっきりしすぎている。'
+  },
+  {
+    title: '観測記録 03', sub: 'テンペスト9', req: 'tempest',
+    body: '9秒間だけ空が崩れるようなメテオ嵐が発生する。嵐の最中には雷を帯びた個体も混ざる。点火すると落雷を呼び、盤面を縦に切り裂いた。'
+  },
+  {
+    title: '観測記録 04', sub: 'プリズマリア', req: 'prismaria',
+    body: '周囲の色に同調するプリズム・メテオを確認。同じ個体が状況によって異なる色の連鎖へ参加する。メテオはただの岩石ではないのかもしれない。'
+  },
+  {
+    title: '観測記録 05', sub: 'ボルカ・ゼロ', req: 'volca',
+    body: '着地後に自己崩壊を始めるボム・メテオ。こちらから点火すれば制御できるが、放置すれば暴発する。なぜ「待つ」ことで危険度が増すのかは未解明。'
+  }
+];
+const ARCHIVE_TABS = [
+  {
+    name: '惑星',
+    entries: [
+      { title: 'ルナ・ヴェイル', sub: '低重力', req: 'luna', body: '重力が弱く、打ち上げた塊が長く滞空する惑星。空中での再点火や押し上げを狙いやすい。', note: 'MISSION：メテオを60個 射出' },
+      { title: 'グラヴィタス', sub: '高重力', req: 'gravitas', body: '重力が強く、打ち上げた塊がすぐ失速する。アンカー・メテオも出現し、より強い点火が必要。', note: 'MISSION：アンカーを8個 射出' },
+      { title: 'テンペスト9', sub: 'メテオ嵐', req: 'tempest', body: '一定間隔で9秒間のメテオ嵐が発生する惑星。嵐の最中だけ雷メテオが混ざる。', note: 'MISSION：75秒 生存' },
+      { title: 'プリズマリア', sub: '万能色', req: 'prismaria', body: 'プリズム・メテオが多く降る惑星。色の隙間を埋め、普段は作れない点火を作り出せる。', note: 'MISSION：プリズム点火を12回' },
+      { title: 'ボルカ・ゼロ', sub: '時限爆発', req: 'volca', body: 'ボム・メテオが降る危険な惑星。着地後の導火線を意識しながら盤面を組み替える必要がある。', note: 'MISSION：ボムを10個 安全起爆' }
+    ]
+  },
+  {
+    name: '特殊メテオ',
+    entries: [
+      { title: '⚓ アンカー', sub: '重量型', req: 'gravitas', body: '通常色を持つが非常に重い特殊メテオ。塊に含まれると打ち上げに必要な推力が増える。', note: '宇宙へ射出できれば高重力攻略の進行対象。' },
+      { title: '⚡ 雷メテオ', sub: '放電型', req: 'tempest', body: 'TEMPEST 9の嵐中だけ出現。これを含む点火を作ると、その位置へ落雷が発生する。', note: '上から点火地点まで縦一列を消去し、通常の点火はキャンセル。' },
+      { title: '🌈 プリズム', sub: '同調型', req: 'prismaria', body: '隣の通常色に合わせて万能色として扱われる。赤＋プリズム＋赤のような並びでも点火可能。', note: 'プリズムだけ3個では点火しない。' },
+      { title: '💣 ボム', sub: '時限型', req: 'volca', body: '着地すると8秒の導火線が始まる。揃えて点火すれば周囲を安全起爆できる。', note: '放置すると暴発。打ち上げても導火線は止まらない。' }
+    ]
+  },
+  {
+    name: '現象',
+    entries: [
+      { title: '低重力', sub: 'LUNA PHYSICS', req: 'luna', body: '上昇時間と落下時間が長くなる環境。空中での二次点火や、落下中の塊を下から押し上げる猶予が増える。', note: '長い滞空をコンボへ変えるのがコツ。' },
+      { title: '高重力', sub: 'GRAVITY WELL', req: 'gravitas', body: '上昇した塊が強く引き戻される環境。小さな点火だけでは軌道外まで届かないことがある。', note: '広い点火・再点火・押し上げが重要。' },
+      { title: 'TEMPEST 9', sub: '9秒間メテオ嵐', req: 'tempest', body: '警報の後、9秒間にわたってメテオが波状に降り続ける現象。終了後には短い立て直し時間がある。', note: 'ENDLESSでは進行に応じて嵐の密度も上昇する。' }
+    ]
+  }
+];
+const storyUnlocked = e => !e.req || !!planetClear[e.req];
+const archiveUnlocked = e => !e.req || planetUnlocked(e.req);
+
 let rest = [], groups = [], particles = [], popups = [], flyaways = [], lightningBolts = [];
 const drags = new Map();
 let score = 0, level = 1, levelT = 0, spawnT = 0, playT = 0, shake = 0, flashA = 0, maxCombo = 0;
@@ -1134,14 +1193,30 @@ function onDown(e) {
     const L = titleLayout();
     if (inRect(x, y, L.classic.x, L.classic.y, L.bw, L.bh * 1.15)) { currentMode = 'classic'; startGame(); }
     else if (inRect(x, y, L.planet.x, L.planet.y, L.bw, L.bh * 1.15)) { state = 'planet'; stateT = 0; }
-    else if (inRect(x, y, L.story.x, L.story.y, L.story.w, L.story.h * 1.25)) { state = 'story'; stateT = 0; }
-    else if (inRect(x, y, L.archive.x, L.archive.y, L.archive.w, L.archive.h * 1.25)) { state = 'archive'; stateT = 0; }
+    else if (inRect(x, y, L.story.x, L.story.y, L.story.w, L.story.h * 1.25)) { storyPage = 0; state = 'story'; stateT = 0; }
+    else if (inRect(x, y, L.archive.x, L.archive.y, L.archive.w, L.archive.h * 1.25)) { archiveTab = 0; archivePage = 0; state = 'archive'; stateT = 0; }
     else if (inRect(x, y, L.howto.x, L.howto.y, L.howto.w, L.howto.h * 1.3)) { state = 'howto'; stateT = 0; }
     return;
   }
-  if (state === 'story' || state === 'archive') {
+  if (state === 'story') {
     const L = infoLayout();
-    if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
+    if (inRect(x, y, L.prev.x, L.prev.y, L.prev.w, L.prev.h * 1.35)) { storyPage = (storyPage + STORY_LOGS.length - 1) % STORY_LOGS.length; tone(420, 0.04, 'triangle', 0.035, 520); }
+    else if (inRect(x, y, L.next.x, L.next.y, L.next.w, L.next.h * 1.35)) { storyPage = (storyPage + 1) % STORY_LOGS.length; tone(520, 0.04, 'triangle', 0.035, 620); }
+    else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
+    return;
+  }
+  if (state === 'archive') {
+    const L = infoLayout();
+    const tabW = Math.min(W * 0.27, 118), gap = Math.min(W * 0.015, 7);
+    const totalW = tabW * 3 + gap * 2, x0 = (W - totalW) / 2 + tabW / 2;
+    for (let i = 0; i < ARCHIVE_TABS.length; i++) {
+      const tx = x0 + i * (tabW + gap);
+      if (inRect(x, y, tx, L.tabsY, tabW, 42)) { archiveTab = i; archivePage = 0; tone(500, 0.04, 'triangle', 0.035, 620); return; }
+    }
+    const entries = ARCHIVE_TABS[archiveTab].entries;
+    if (inRect(x, y, L.prev.x, L.prev.y, L.prev.w, L.prev.h * 1.35)) { archivePage = (archivePage + entries.length - 1) % entries.length; tone(420, 0.04, 'triangle', 0.035, 520); }
+    else if (inRect(x, y, L.next.x, L.next.y, L.next.w, L.next.h * 1.35)) { archivePage = (archivePage + 1) % entries.length; tone(520, 0.04, 'triangle', 0.035, 620); }
+    else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
   if (state === 'howto') {
@@ -1758,8 +1833,15 @@ function titleLayout() {
   };
 }
 function infoLayout() {
-  const bh = Math.round(clamp(H * 0.062, 44, 54));
-  return { back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.60, 250), h: bh } };
+  const bh = Math.round(clamp(H * 0.058, 42, 52));
+  const navW = Math.min(W * 0.26, 112);
+  return {
+    card: { x: W / 2, y: H * 0.51, w: Math.min(W * 0.88, 405), h: H * 0.48 },
+    prev: { x: W * 0.25, y: H * 0.80, w: navW, h: bh * 0.82 },
+    next: { x: W * 0.75, y: H * 0.80, w: navW, h: bh * 0.82 },
+    tabsY: H * 0.215,
+    back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.60, 250), h: bh }
+  };
 }
 
 function howToLayout() {
@@ -1851,23 +1933,94 @@ function drawTitle() {
   text('PHASE 1 TEST BUILD', cx, H - 16, Math.min(11, W * 0.028), 'rgba(200,200,230,0.55)', { weight: 500, stroke: false });
 }
 
-function drawInfoShell(kind) {
-  ctx.fillStyle = 'rgba(8,4,24,0.56)'; ctx.fillRect(0, 0, W, H);
-  const cx = W / 2;
-  const story = kind === 'story';
-  const title = story ? 'STORY' : 'ARCHIVE';
-  const jp = story ? '観測記録' : '星間図鑑';
-  const col = story ? '#9ffcff' : '#dcb9ff';
-  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 18;
-  text(title, cx, H * 0.12, Math.min(W * 0.10, 44), '#f2fbff', { strokeColor: '#161044' }); ctx.restore();
-  text(jp, cx, H * 0.17, Math.min(15, W * 0.038), col, { weight: 800 });
-  text('DATA SHELL / TEST', cx, H * 0.48, Math.min(14, W * 0.035), '#aaa6d5', { weight: 700, stroke: false });
-  const L = infoLayout();
+function wrapJP(str, maxWidth, size, weight) {
+  ctx.font = `${weight || 700} ${Math.round(size)}px ${FONT}`;
+  const lines = [];
+  for (const para of String(str).split('\n')) {
+    let line = '';
+    for (const ch of para) {
+      const test = line + ch;
+      if (line && ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+function drawInfoBack(L) {
   roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.45)');
   rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
   ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,180,255,0.55)'; ctx.stroke();
   text('タイトルへ戻る', L.back.x, L.back.y, L.back.h * 0.32, '#e8e6ff', { strokeColor: '#171044' });
 }
+function drawPageNav(L, page, total, color) {
+  for (const [b, label] of [[L.prev, '＜ 前へ'], [L.next, '次へ ＞']]) {
+    roundBtn(b.x, b.y, b.w, b.h, 'rgba(75,68,145,0.42)');
+    rr(ctx, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, b.h / 2);
+    ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(190,180,255,0.42)'; ctx.stroke();
+    text(label, b.x, b.y, b.h * 0.31, '#e8e6ff', { strokeColor: '#171044' });
+  }
+  text((page + 1) + ' / ' + total, W / 2, L.prev.y, Math.min(13, W * 0.032), color, { weight: 800, stroke: false });
+}
+function drawInfoCard(L, titleStr, subStr, bodyStr, noteStr, color, unlocked) {
+  const c = L.card;
+  rr(ctx, c.x - c.w / 2, c.y - c.h / 2, c.w, c.h, 18);
+  ctx.fillStyle = unlocked ? 'rgba(255,255,255,0.065)' : 'rgba(50,45,72,0.28)'; ctx.fill();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = unlocked ? 'rgba(190,180,255,0.34)' : 'rgba(100,95,125,0.25)'; ctx.stroke();
+
+  if (!unlocked) {
+    text('LOCKED', c.x, c.y - c.h * 0.10, Math.min(28, W * 0.070), '#77748b', { strokeColor: '#181323' });
+    text('PLANET CLEARで記録を解放', c.x, c.y + c.h * 0.04, Math.min(13, W * 0.033), '#77748b', { weight: 700, stroke: false });
+    text('？？？？？？', c.x, c.y + c.h * 0.16, Math.min(18, W * 0.045), '#555266', { weight: 900, stroke: false });
+    return;
+  }
+
+  text(titleStr, c.x, c.y - c.h * 0.31, Math.min(24, W * 0.060), '#ffffff', { strokeColor: '#171044' });
+  text(subStr, c.x, c.y - c.h * 0.22, Math.min(13, W * 0.033), color, { weight: 800, stroke: false });
+  const fs = Math.min(15, W * 0.037), maxW = c.w * 0.82;
+  const lines = wrapJP(bodyStr, maxW, fs, 700);
+  let y = c.y - c.h * 0.08;
+  for (const line of lines.slice(0, 8)) {
+    text(line, c.x - maxW / 2, y, fs, '#e8e6f4', { align: 'left', weight: 700, stroke: false });
+    y += fs * 1.65;
+  }
+  if (noteStr) {
+    const ns = Math.min(12, W * 0.030), noteLines = wrapJP(noteStr, maxW, ns, 700);
+    const ny0 = c.y + c.h * 0.31;
+    for (let i = 0; i < Math.min(2, noteLines.length); i++)
+      text(noteLines[i], c.x - maxW / 2, ny0 + i * ns * 1.45, ns, color, { align: 'left', weight: 700, stroke: false });
+  }
+}
+function drawStory() {
+  ctx.fillStyle = 'rgba(8,4,24,0.56)'; ctx.fillRect(0, 0, W, H);
+  const L = infoLayout(), cx = W / 2, e = STORY_LOGS[storyPage], ok = storyUnlocked(e);
+  ctx.save(); ctx.shadowColor = '#9ffcff'; ctx.shadowBlur = 18;
+  text('STORY', cx, H * 0.10, Math.min(W * 0.10, 44), '#f2fbff', { strokeColor: '#161044' }); ctx.restore();
+  text('観測記録', cx, H * 0.155, Math.min(15, W * 0.038), '#9ffcff', { weight: 800 });
+  drawInfoCard(L, e.title, e.sub, e.body, ok ? '※現在の観測記録。設定は今後の調査で更新される場合があります。' : '', '#9ffcff', ok);
+  drawPageNav(L, storyPage, STORY_LOGS.length, '#9ffcff');
+  drawInfoBack(L);
+}
+function drawArchive() {
+  ctx.fillStyle = 'rgba(8,4,24,0.56)'; ctx.fillRect(0, 0, W, H);
+  const L = infoLayout(), cx = W / 2, tab = ARCHIVE_TABS[archiveTab], e = tab.entries[archivePage], ok = archiveUnlocked(e);
+  ctx.save(); ctx.shadowColor = '#dcb9ff'; ctx.shadowBlur = 18;
+  text('ARCHIVE', cx, H * 0.075, Math.min(W * 0.095, 42), '#f2fbff', { strokeColor: '#161044' }); ctx.restore();
+  text('星間図鑑', cx, H * 0.125, Math.min(14, W * 0.035), '#dcb9ff', { weight: 800 });
+
+  const tabW = Math.min(W * 0.27, 118), gap = Math.min(W * 0.015, 7);
+  const totalW = tabW * 3 + gap * 2, x0 = (W - totalW) / 2 + tabW / 2;
+  for (let i = 0; i < ARCHIVE_TABS.length; i++) {
+    const x = x0 + i * (tabW + gap), active = i === archiveTab;
+    roundBtn(x, L.tabsY, tabW, 34, active ? 'rgba(145,105,225,0.58)' : 'rgba(70,62,125,0.34)');
+    text(ARCHIVE_TABS[i].name, x, L.tabsY, Math.min(11, W * 0.028), active ? '#fff' : '#aaa6d5', { weight: 800, stroke: false });
+  }
+
+  drawInfoCard(L, e.title, e.sub, e.body, e.note, '#dcb9ff', ok);
+  drawPageNav(L, archivePage, tab.entries.length, '#dcb9ff');
+  drawInfoBack(L);
+}
+
 
 function drawHowTo() {
   ctx.fillStyle = 'rgba(8,4,24,0.50)'; ctx.fillRect(0, 0, W, H);
@@ -2353,8 +2506,8 @@ function draw() {
   drawBg();
   if (state === 'title') { drawTitle(); drawHudBtn('mute'); return; }
   if (state === 'howto') { drawHowTo(); drawHudBtn('mute'); return; }
-  if (state === 'story') { drawInfoShell('story'); drawHudBtn('mute'); return; }
-  if (state === 'archive') { drawInfoShell('archive'); drawHudBtn('mute'); return; }
+  if (state === 'story') { drawStory(); drawHudBtn('mute'); return; }
+  if (state === 'archive') { drawArchive(); drawHudBtn('mute'); return; }
   if (state === 'planet') { drawPlanetSelect(); drawHudBtn('mute'); return; }
   drawHUDBg();
   ctx.save();

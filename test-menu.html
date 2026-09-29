@@ -318,8 +318,9 @@ function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e
 // ===================== ゲーム状態 =====================
 let state = 'title', stateT = 0;
 let currentMode = 'classic';
-const LUNA_GOAL = 30;
+const LUNA_GOAL = 60;
 let lunaCleared = false;
+let lunaMilestone = 0;
 try { lunaCleared = localStorage.getItem('meteoflick_luna_clear') === '1'; } catch (e) {}
 let rest = [], groups = [], particles = [], popups = [], flyaways = [];
 const drags = new Map();
@@ -377,6 +378,7 @@ function startGame() {
   state = 'play'; stateT = 0; paused = false; stopFast();
   groups = []; particles = []; popups = []; flyaways = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
+  lunaMilestone = 0;
   stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
@@ -1012,7 +1014,18 @@ function stepPlay(dt) {
   // ドラッグ中ブロックの妥当性
   for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 
-  if (currentMode === 'luna' && stats.cleared >= LUNA_GOAL) { stageClear(); return; }
+  if (currentMode === 'luna') {
+    if (lunaMilestone < 1 && stats.cleared >= 20) {
+      lunaMilestone = 1;
+      popup('軌道安定化 1/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
+    }
+    if (lunaMilestone < 2 && stats.cleared >= 40) {
+      lunaMilestone = 2;
+      popup('軌道安定化 2/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
+      popup('あと20個！', W / 2, ftop + cell * 4.3, { size: 0.85, color: '#fff27a', life: 1.4 });
+    }
+    if (stats.cleared >= LUNA_GOAL) { stageClear(); return; }
+  }
   for (let c = 0; c < COLS; c++) if (rest[c].length > ROWS) { gameOver(); break; }
 }
 

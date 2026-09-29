@@ -345,17 +345,22 @@ for (const id of Object.keys(planetClear)) {
   try { planetClear[id] = localStorage.getItem('meteoflick_planet_' + id + '_clear') === '1' || (id === 'luna' && localStorage.getItem('meteoflick_luna_clear') === '1'); } catch (e) {}
 }
 let stageMilestone = 0, stormNext = 14, stormWarned = false, stormActive = false, stormEnd = 0, stormPulse = 0;
+let stageEndless = false;
+const endlessHi = { luna: 0, gravitas: 0, tempest: 0 };
+for (const id of Object.keys(endlessHi)) {
+  try { endlessHi[id] = +localStorage.getItem('meteoflick_endless_' + id) || 0; } catch (e) {}
+}
 const isPlanetMode = () => !!PLANETS[currentMode];
 const stageDef = () => PLANETS[currentMode] || null;
 const planetUnlocked = id => id === 'luna' || (id === 'gravitas' && planetClear.luna) || (id === 'tempest' && planetClear.gravitas);
-let rest = [], groups = [], particles = [], popups = [], flyaways = [];
+let rest = [], groups = [], particles = [], popups = [], flyaways = [], lightningBolts = [];
 const drags = new Map();
 let score = 0, level = 1, levelT = 0, spawnT = 0, playT = 0, shake = 0, flashA = 0, maxCombo = 0;
 let hi = 0, newHi = false, debugNoSpawn = false, frozen = false, paused = false;
 let fastId = null, fastKey = false, fastAcc = 0; // 早送りボタンを押している pointerId
 const fastOn = () => state === 'play' && !paused && (fastId !== null || fastKey);
 function stopFast() { if (fastId !== null) { try { cv.releasePointerCapture(fastId); } catch (e) {} } fastId = null; fastKey = false; }
-let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, pushes: 0, reig: 0, stoneMoves: 0 };
+let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, lightning: 0, pushes: 0, reig: 0, stoneMoves: 0 };
 let nextId = 1, live = 0; // live: 盤上に存在するブロック数（整合性チェック用）
 try { hi = +localStorage.getItem('meteoflick_hi') || 0; } catch (e) {}
 
@@ -410,20 +415,22 @@ function initBoard() {
   }
 }
 
-function startGame() {
+function startGame(endlessFlag) {
   initAudio();
+  if (currentMode === 'classic') stageEndless = false;
+  else if (endlessFlag != null) stageEndless = !!endlessFlag;
   applyModeRules();
   state = 'play'; stateT = 0; paused = false; stopFast();
-  groups = []; particles = []; popups = []; flyaways = []; drags.clear();
+  groups = []; particles = []; popups = []; flyaways = []; lightningBolts = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
   stageMilestone = 0; stormNext = 14; stormWarned = false; stormActive = false; stormEnd = 0; stormPulse = 0;
-  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, pushes: 0, reig: 0, stoneMoves: 0 };
+  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, lightning: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
   if (isPlanetMode()) {
     const d = stageDef();
     popup(d.name, W / 2, ftop + cell * 3.4, { size: 1.25, color: d.accent, life: 1.5 });
-    popup(d.mission, W / 2, ftop + cell * 4.7, { size: 0.92, color: '#fff27a', life: 1.7 });
+    popup(stageEndless ? 'ENDLESS / SCORE ATTACK' : d.mission, W / 2, ftop + cell * 4.7, { size: 0.92, color: '#fff27a', life: 1.7 });
   } else {
     popup('スタート！', W / 2, ftop + cell * 4, { size: 1.6, color: '#fff27a', life: 1.1 });
   }
@@ -444,9 +451,10 @@ function stageClear() {
 }
 
 function toPlanetSelect() {
+  stageEndless = false;
   paused = false; state = 'planet'; stateT = 0; stopFast();
   for (const id of [...drags.keys()]) endDrag(id);
-  groups = []; particles = []; popups = []; flyaways = []; shake = 0; flashA = 0;
+  groups = []; particles = []; popups = []; flyaways = []; lightningBolts = []; shake = 0; flashA = 0;
 }
 
 function gameOver() {
@@ -454,6 +462,10 @@ function gameOver() {
   state = 'over'; stateT = 0; paused = false; stopFast();
   for (const id of [...drags.keys()]) endDrag(id);
   if (currentMode === 'classic' && score > hi) { hi = score; newHi = true; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
+  if (stageEndless && isPlanetMode() && score > endlessHi[currentMode]) {
+    endlessHi[currentMode] = score; newHi = true;
+    try { localStorage.setItem('meteoflick_endless_' + currentMode, String(score)); } catch (e) {}
+  }
   shake = 10; sfx.over(); buzz([80, 60, 120]);
   if (currentMode === 'classic') rkOnGameOver();
 }
@@ -473,10 +485,11 @@ function resumeGame() {
   tone(390, 0.08, 'triangle', 0.08, 620);
 }
 function toTitle() {
+  stageEndless = false;
   if (currentMode === 'classic' && score > hi) { hi = score; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
   paused = false; state = 'title'; stateT = 0; stopFast();
   for (const id of [...drags.keys()]) endDrag(id);
-  groups = []; particles = []; popups = []; flyaways = []; shake = 0; flashA = 0;
+  groups = []; particles = []; popups = []; flyaways = []; lightningBolts = []; shake = 0; flashA = 0;
 }
 function pauseLayout() {
   const bw = Math.min(W * 0.66, 280), bh = Math.round(clamp(H * 0.075, 52, 64));
@@ -495,6 +508,7 @@ function gcols(g) {
 function spawnMeteor(c, color, forceSpecial) {
   const b = newBlock(color == null ? rnd(numColors()) : color);
   if (forceSpecial === 'anchor' || (currentMode === 'gravitas' && forceSpecial !== false && Math.random() < 0.18)) b.special = 'anchor';
+  else if (forceSpecial === 'lightning') b.special = 'lightning';
   live++;
   groups.push({ id: nextId++, blocks: [{ b, c, r: 0 }], y: ROWS + 1.3, vy: -fallSpeed(), fuel: 0, meteor: true, combo: 0 });
 }
@@ -510,7 +524,8 @@ function spawnTempestPulse() {
       if (m && g.y + m.max + 1 > ROWS + 0.55) { ok = false; break; }
     }
     if (!ok) continue;
-    spawnMeteor(c, null, false);
+    const sp = Math.random() < 0.16 ? 'lightning' : false;
+    spawnMeteor(c, null, sp);
     made++;
     if (made >= want) break;
   }
@@ -765,12 +780,64 @@ function snapHovering() {
   }
 }
 
+function triggerLightningStrike(c, targetRow) {
+  const removedBlocks = new Set();
+  let removed = 0;
+  const cut = Math.max(0, Math.ceil(targetRow - 0.001));
+
+  if (rest[c] && cut < rest[c].length) {
+    const gone = rest[c].splice(cut);
+    for (const b of gone) { removedBlocks.add(b); removed++; }
+  }
+
+  for (let gi = groups.length - 1; gi >= 0; gi--) {
+    const gg = groups[gi];
+    const keep = [];
+    for (const e of gg.blocks) {
+      if (e.c === c && gg.y + e.r >= targetRow - 0.01) {
+        removedBlocks.add(e.b); removed++;
+      } else keep.push(e);
+    }
+    gg.blocks = keep;
+    if (!gg.blocks.length) groups.splice(gi, 1);
+  }
+
+  for (const [id, d] of [...drags]) {
+    if (removedBlocks.has(d.b)) {
+      d.b.dragOff = 0; d.b.dragging = false; drags.delete(id);
+    }
+  }
+
+  live = Math.max(0, live - removed);
+  const x = bxL(c) + cell / 2;
+  const y = clamp(rowTop(targetRow) + cell / 2, ftop, fb);
+  lightningBolts.push({ x, y, life: 0.34, max: 0.34 });
+  for (let i = 0; i < 24; i++) {
+    addP({ x: x + (Math.random() - 0.5) * cell * 0.7, y: y + (Math.random() - 0.5) * cell * 0.5,
+      vx: (Math.random() - 0.5) * 420, vy: (Math.random() - 0.5) * 420,
+      life: 0.25 + Math.random() * 0.35, size: 2 + Math.random() * 4, color: i % 3 ? '#fff36a' : '#ffffff', type: 'spark', grav: 120 });
+  }
+  const bonus = removed * 15;
+  if (bonus) score += bonus;
+  stats.lightning++;
+  shake = Math.max(shake, 14); flashA = Math.max(flashA, 0.45);
+  tone(120, 0.10, 'sawtooth', 0.16, 60); tone(1200, 0.14, 'square', 0.06, 300);
+  buzz([20,18,20,18,65]);
+  popup('⚡ 落雷！ 点火キャンセル', x, y - cell * 0.8, { size: 1.05, color: '#fff36a', life: 1.25 });
+  if (bonus) popup('+' + bonus, x, y + cell * 0.2, { size: 0.82, color: '#ffffff', life: 0.9 });
+}
+
 function checkRest() {
   snapHovering();
   const cells = new Map();
   for (let c = 0; c < COLS; c++) rest[c].forEach((b, i) => cells.set(key(c, i), { b, c, r: i }));
   const m = findMatches(cells);
   if (!m.size) return;
+  const lightning = [...m].find(e => e.b.special === 'lightning');
+  if (lightning) {
+    triggerLightningStrike(lightning.c, lightning.r);
+    return;
+  }
   const lit = new Map(); // c -> entries
   for (const e of m) { e.b.state = 'fire'; e.b.re = false; e.b.t = 0; e.b.flash = 1; if (!lit.has(e.c)) lit.set(e.c, []); lit.get(e.c).push(e); }
   const low = [];
@@ -800,6 +867,11 @@ function checkGroup(g) {
   for (const e of g.blocks) cells.set(key(e.c, e.r), e);
   const m = findMatches(cells);
   if (!m.size) return;
+  const lightning = [...m].find(e => e.b.special === 'lightning');
+  if (lightning) {
+    triggerLightningStrike(lightning.c, g.y + lightning.r);
+    return;
+  }
   for (const e of m) { e.b.state = 'fire'; e.b.re = false; e.b.t = 0; e.b.flash = 1; }
   g.combo++;
   applyIgnition(g, [...m]);
@@ -856,6 +928,10 @@ function updateFx(dt) {
     p.x += p.vx * dt; p.y += p.vy * dt;
   }
   for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.life -= dt; p.y -= 28 * dt; if (p.life <= 0) popups.splice(i, 1); }
+  for (let i = lightningBolts.length - 1; i >= 0; i--) {
+    lightningBolts[i].life -= dt;
+    if (lightningBolts[i].life <= 0) lightningBolts.splice(i, 1);
+  }
   for (let i = flyaways.length - 1; i >= 0; i--) {
     const f = flyaways[i]; f.vy -= 2200 * dt; f.y += f.vy * dt; f.life -= dt;
     if (Math.random() < 0.5) addP({ x: f.x + cell / 2 + (Math.random() - 0.5) * cell * 0.5, y: f.y + cell, vx: (Math.random() - 0.5) * 40, vy: 120, life: 0.3, size: cell * 0.22, color: '#ffae3a', type: 'flame' });
@@ -963,19 +1039,20 @@ function onDown(e) {
         return;
       }
     }
-    if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2) && planetUnlocked(selectedPlanet)) { currentMode = selectedPlanet; startGame(); }
+    if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2) && planetUnlocked(selectedPlanet)) { currentMode = selectedPlanet; startGame(false); }
     else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
   if (state === 'clear') {
     const L = clearLayout();
-    if (stateT > 0.5 && inRect(x, y, L.retry.x, L.retry.y, L.retry.w, L.retry.h * 1.2)) startGame();
+    if (stateT > 0.5 && inRect(x, y, L.retry.x, L.retry.y, L.retry.w, L.retry.h * 1.2)) startGame(false);
+    else if (stateT > 0.5 && inRect(x, y, L.endless.x, L.endless.y, L.endless.w, L.endless.h * 1.2)) startGame(true);
     else if (stateT > 0.5 && inRect(x, y, L.planet.x, L.planet.y, L.planet.w, L.planet.h * 1.2)) toPlanetSelect();
     return;
   }
   if (state === 'over') { // リトライはボタンのみ（ランキング入力中の誤タップで次のゲームが始まらないように）
     const blurred = rkBlur(), L = overLayout();
-    if (!blurred && stateT > 1.0 && inRect(x, y, W / 2, L.by, L.bw + 24, L.bh * 1.4)) startGame();
+    if (!blurred && stateT > 1.0 && inRect(x, y, W / 2, L.by, L.bw + 24, L.bh * 1.4)) startGame(stageEndless);
     return;
   }
   if (state !== 'play') return;
@@ -1118,18 +1195,18 @@ function stepPlay(dt) {
   for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 
   if (currentMode === 'luna') {
-    if (stageMilestone < 1 && stats.cleared >= 20) {
+    if (!stageEndless && stageMilestone < 1 && stats.cleared >= 20) {
       stageMilestone = 1;
       popup('軌道安定化 1/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
     }
-    if (stageMilestone < 2 && stats.cleared >= 40) {
+    if (!stageEndless && stageMilestone < 2 && stats.cleared >= 40) {
       stageMilestone = 2;
       popup('軌道安定化 2/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
       popup('あと20個！', W / 2, ftop + cell * 4.3, { size: 0.85, color: '#fff27a', life: 1.4 });
     }
-    if (stats.cleared >= PLANETS.luna.goal) { stageClear(); return; }
+    if (!stageEndless && stats.cleared >= PLANETS.luna.goal) { stageClear(); return; }
   } else if (currentMode === 'gravitas') {
-    if (stats.anchors >= PLANETS.gravitas.goal) { stageClear(); return; }
+    if (!stageEndless && stats.anchors >= PLANETS.gravitas.goal) { stageClear(); return; }
   } else if (currentMode === 'tempest') {
     if (!stormActive) {
       if (!stormWarned && playT >= stormNext - 3) {
@@ -1147,7 +1224,7 @@ function stepPlay(dt) {
       popup('嵐が止んだ…', W / 2, ftop + cell * 3.2, { size: 0.9, color: '#bfe8ff', life: 1.4 });
       tone(420, 0.16, 'triangle', 0.06, 620);
     }
-    if (playT >= PLANETS.tempest.goal) { stageClear(); return; }
+    if (!stageEndless && playT >= PLANETS.tempest.goal) { stageClear(); return; }
   }
   for (let c = 0; c < COLS; c++) if (rest[c].length > ROWS) { gameOver(); break; }
 }
@@ -1281,6 +1358,22 @@ function drawBlock(b, x, y) {
     ctx.beginPath(); ctx.arc(cx, cy + cell * 0.08, cell * 0.15, 0.15, Math.PI - 0.15); ctx.stroke();
     ctx.restore();
   }
+  if (b.special === 'lightning') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#fff36a'; ctx.shadowBlur = cell * 0.22;
+    ctx.fillStyle = '#fff36a'; ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, cell * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(cx + cell * 0.02, cy - cell * 0.30);
+    ctx.lineTo(cx - cell * 0.16, cy + cell * 0.01);
+    ctx.lineTo(cx - cell * 0.01, cy + cell * 0.01);
+    ctx.lineTo(cx - cell * 0.10, cy + cell * 0.30);
+    ctx.lineTo(cx + cell * 0.19, cy - cell * 0.06);
+    ctx.lineTo(cx + cell * 0.04, cy - cell * 0.06);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawBlocks() {
@@ -1327,6 +1420,26 @@ function drawParticles() {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     }
   }
+  for (const b of lightningBolts) {
+    const k = b.life / b.max;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.min(1, k * 2);
+    ctx.strokeStyle = '#fff36a';
+    ctx.lineWidth = Math.max(3, cell * 0.10);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    let x = b.x, y = ftop - 8;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    const seg = 7;
+    for (let i = 1; i <= seg; i++) {
+      const yy = ftop + (b.y - ftop) * (i / seg);
+      const xx = i === seg ? b.x : b.x + (Math.random() - 0.5) * cell * 0.60;
+      ctx.lineTo(xx, yy); x = xx; y = yy;
+    }
+    ctx.stroke();
+    ctx.globalAlpha *= 0.55; ctx.lineWidth *= 2.2; ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function text(str, x, y, size, color, o) {
@@ -1366,7 +1479,9 @@ function drawHUD() {
   text(String(score), pad, hudH * 0.64, vs, '#ffffff', { align: 'left' });
 
   let rLabel = 'レベル', rValue = String(level), rColor = '#7affb0', rScale = 1, ratio = levelT / LEVEL_TIME;
-  if (currentMode === 'luna') { rLabel = '射出'; rValue = Math.min(stats.cleared, PLANETS.luna.goal) + '/' + PLANETS.luna.goal; rColor = '#9ffcff'; rScale = 0.78; ratio = Math.min(1, stats.cleared / PLANETS.luna.goal); }
+  if (stageEndless && isPlanetMode()) {
+    rLabel = 'レベル'; rValue = String(level); rColor = stageDef().accent; rScale = 1; ratio = levelT / LEVEL_TIME;
+  } else if (currentMode === 'luna') { rLabel = '射出'; rValue = Math.min(stats.cleared, PLANETS.luna.goal) + '/' + PLANETS.luna.goal; rColor = '#9ffcff'; rScale = 0.78; ratio = Math.min(1, stats.cleared / PLANETS.luna.goal); }
   else if (currentMode === 'gravitas') { rLabel = 'アンカー'; rValue = Math.min(stats.anchors, PLANETS.gravitas.goal) + '/' + PLANETS.gravitas.goal; rColor = '#ffb06a'; rScale = 0.78; ratio = Math.min(1, stats.anchors / PLANETS.gravitas.goal); }
   else if (currentMode === 'tempest') { rLabel = '残り'; rValue = Math.max(0, Math.ceil(PLANETS.tempest.goal - playT)) + 's'; rColor = '#cdb8ff'; rScale = 0.82; ratio = Math.min(1, playT / PLANETS.tempest.goal); }
 
@@ -1387,7 +1502,7 @@ function drawHUD() {
       text('嵐 残り', cxm, hudH * 0.28, Math.min(ls, 12), '#ffd1ff', Object.assign({}, lbl, { align: 'center' }));
       text(Math.max(0, stormEnd - playT).toFixed(1) + 's', cxm, hudH * 0.64, vs * 0.62, '#f0d8ff');
     } else {
-      text(d.tag, cxm, hudH * 0.28, Math.min(ls, 12), '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
+      text(stageEndless ? 'ENDLESS' : d.tag, cxm, hudH * 0.28, Math.min(ls, 12), stageEndless ? '#fff27a' : '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
       text(d.short, cxm, hudH * 0.64, vs * 0.64, d.accent);
     }
   } else {
@@ -1490,10 +1605,12 @@ function planetLayout() {
   };
 }
 function clearLayout() {
-  const bh = Math.round(clamp(H * 0.07, 48, 60)), w = Math.min(W * 0.72, 310);
+  const bh = Math.round(clamp(H * 0.064, 44, 56)), w = Math.min(W * 0.72, 310);
+  const y = H * 0.66, gap = bh * 1.18;
   return {
-    retry: { x: W / 2, y: H * 0.70, w, h: bh },
-    planet: { x: W / 2, y: H * 0.70 + bh * 1.35, w, h: bh }
+    retry: { x: W / 2, y, w, h: bh },
+    endless: { x: W / 2, y: y + gap, w, h: bh },
+    planet: { x: W / 2, y: y + gap * 2, w, h: bh }
   };
 }
 
@@ -1671,12 +1788,15 @@ function drawOver() {
   text('スコア', cx - sw / 2 - 8, L.scoreY + L.vs * 0.12, L.ls, '#a9a3d6', { weight: 700, align: 'right' });
   if (isPlanetMode()) {
     const d = stageDef();
-    const pv = currentMode === 'luna' ? ('射出 ' + stats.cleared + '/' + d.goal) : currentMode === 'gravitas' ? ('アンカー ' + stats.anchors + '/' + d.goal) : ('生存 ' + Math.floor(playT) + '/' + d.goal + '秒');
-    text(pv, cx, L.hiY, L.ls * 1.1, d.accent, { weight: 800 });
+    if (stageEndless) text((newHi ? '★ ' : '') + 'ENDLESS BEST  ' + endlessHi[currentMode], cx, L.hiY, L.ls * 1.05, newHi ? '#fff27a' : d.accent, { weight: 800 });
+    else {
+      const pv = currentMode === 'luna' ? ('射出 ' + stats.cleared + '/' + d.goal) : currentMode === 'gravitas' ? ('アンカー ' + stats.anchors + '/' + d.goal) : ('生存 ' + Math.floor(playT) + '/' + d.goal + '秒');
+      text(pv, cx, L.hiY, L.ls * 1.1, d.accent, { weight: 800 });
+    }
   }
   else if (newHi) text('★ 自己ベスト更新！ ★', cx, L.hiY, L.ls * 1.1, '#fff27a');
   else text('自己ベスト  ' + hi, cx, L.hiY, L.ls, '#fff27a', { weight: 700 });
-  const st = '打ち上げ ' + stats.clears + '回　押し上げ ' + stats.pushes + '回　最大コンボ ' + maxCombo + '　Lv.' + level;
+  const st = '打ち上げ ' + stats.clears + '回　押し上げ ' + stats.pushes + '回' + (stats.lightning ? '　落雷 ' + stats.lightning + '回' : '') + '　最大コンボ ' + maxCombo + '　Lv.' + level;
   let ss = L.ls * 0.9; const tw = textW(st, ss, 700); if (tw > W * 0.94) ss *= W * 0.94 / tw;
   text(st, cx, L.statY, ss, '#9ffcff', { weight: 700 });
   if (stateT > 1.0) {
@@ -1708,6 +1828,13 @@ function drawStageClear() {
   gr.addColorStop(0, d ? d.accent : '#75d8ff'); gr.addColorStop(1, '#416cff');
   roundBtn(L.retry.x, L.retry.y, L.retry.w, L.retry.h, gr);
   text('もう一度挑戦', L.retry.x, L.retry.y, L.retry.h * 0.34, '#fff', { strokeColor: '#17306f' });
+
+  const eg = ctx.createLinearGradient(0, L.endless.y - L.endless.h / 2, 0, L.endless.y + L.endless.h / 2);
+  eg.addColorStop(0, '#ffb347'); eg.addColorStop(1, '#e55542');
+  ctx.save(); ctx.shadowColor = '#ff8a42'; ctx.shadowBlur = 12;
+  roundBtn(L.endless.x, L.endless.y, L.endless.w, L.endless.h, eg); ctx.restore();
+  text('ENDLESS  スコアアタック', L.endless.x, L.endless.y - L.endless.h * 0.06, L.endless.h * 0.30, '#fff', { strokeColor: '#7a2518' });
+  text('時間とともに加速', L.endless.x, L.endless.y + L.endless.h * 0.25, L.endless.h * 0.16, '#fff3d0', { weight: 700, stroke: false });
 
   roundBtn(L.planet.x, L.planet.y, L.planet.w, L.planet.h, 'rgba(110,100,190,0.45)');
   rr(ctx, L.planet.x - L.planet.w / 2, L.planet.y - L.planet.h / 2, L.planet.w, L.planet.h, L.planet.h / 2);

@@ -1152,13 +1152,13 @@ function onDown(e) {
       }
     }
     if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2) && planetUnlocked(selectedPlanet)) { currentMode = selectedPlanet; startGame(false); }
+    else if (planetClear[selectedPlanet] && inRect(x, y, L.endless.x, L.endless.y, L.endless.w, L.endless.h * 1.2)) { currentMode = selectedPlanet; startGame(true); }
     else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
   if (state === 'clear') {
     const L = clearLayout();
     if (stateT > 0.5 && inRect(x, y, L.retry.x, L.retry.y, L.retry.w, L.retry.h * 1.2)) startGame(false);
-    else if (stateT > 0.5 && inRect(x, y, L.endless.x, L.endless.y, L.endless.w, L.endless.h * 1.2)) startGame(true);
     else if (stateT > 0.5 && inRect(x, y, L.planet.x, L.planet.y, L.planet.w, L.planet.h * 1.2)) toPlanetSelect();
     return;
   }
@@ -1761,19 +1761,19 @@ function planetLayout() {
   const cardW = Math.min(W * 0.91, 414);
   const ids = ['luna','gravitas','tempest','prismaria','volca'];
   const cards = ids.map((id, i) => ({ id, x: W / 2, y: top + cardH / 2 + i * (cardH + gap), w: cardW, h: cardH }));
+  const sy = top + ids.length * (cardH + gap) + bh * 0.45;
   return {
     cards,
-    start: { x: W / 2, y: top + ids.length * (cardH + gap) + bh * 0.45, w: Math.min(W * 0.74, 320), h: bh },
+    start: { x: W / 2, y: sy, w: Math.min(W * 0.74, 320), h: bh },
+    endless: { x: W / 2, y: sy + bh * 1.24, w: Math.min(W * 0.74, 320), h: bh },
     back: { x: W / 2, y: H - Math.max(18, H * 0.030), w: Math.min(W * 0.52, 220), h: Math.round(bh * 0.80) }
   };
 }
 function clearLayout() {
-  const bh = Math.round(clamp(H * 0.064, 44, 56)), w = Math.min(W * 0.72, 310);
-  const y = H * 0.66, gap = bh * 1.18;
+  const bh = Math.round(clamp(H * 0.07, 48, 60)), w = Math.min(W * 0.72, 310);
   return {
-    retry: { x: W / 2, y, w, h: bh },
-    endless: { x: W / 2, y: y + gap, w, h: bh },
-    planet: { x: W / 2, y: y + gap * 2, w, h: bh }
+    retry: { x: W / 2, y: H * 0.70, w, h: bh },
+    planet: { x: W / 2, y: H * 0.70 + bh * 1.35, w, h: bh }
   };
 }
 
@@ -1922,6 +1922,16 @@ function drawPlanetSelect() {
   ctx.globalAlpha = 1;
   text(canStart ? (planetClear[selectedPlanet] ? 'もう一度挑戦' : sd.name + 'へ') : '未解放', L.start.x, L.start.y, L.start.h * 0.34, '#fff', { strokeColor: '#18204f' });
 
+  if (planetClear[selectedPlanet]) {
+    const eg = ctx.createLinearGradient(0, L.endless.y - L.endless.h / 2, 0, L.endless.y + L.endless.h / 2);
+    eg.addColorStop(0, '#ffb347'); eg.addColorStop(1, '#e55542');
+    ctx.save(); ctx.shadowColor = '#ff8a42'; ctx.shadowBlur = 10;
+    roundBtn(L.endless.x, L.endless.y, L.endless.w, L.endless.h, eg); ctx.restore();
+    text('ENDLESS  スコアアタック', L.endless.x, L.endless.y - L.endless.h * 0.10, L.endless.h * 0.29, '#fff', { strokeColor: '#7a2518' });
+    const best = endlessHi[selectedPlanet] > 0 ? ('BEST  ' + endlessHi[selectedPlanet].toLocaleString('ja-JP')) : 'BEST  ---';
+    text(best, L.endless.x, L.endless.y + L.endless.h * 0.25, L.endless.h * 0.17, '#fff3d0', { weight: 800, stroke: false });
+  }
+
   roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.40)');
   rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
   ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(190,180,255,0.48)'; ctx.stroke();
@@ -2007,13 +2017,6 @@ function drawStageClear() {
   gr.addColorStop(0, d ? d.accent : '#75d8ff'); gr.addColorStop(1, '#416cff');
   roundBtn(L.retry.x, L.retry.y, L.retry.w, L.retry.h, gr);
   text('もう一度挑戦', L.retry.x, L.retry.y, L.retry.h * 0.34, '#fff', { strokeColor: '#17306f' });
-
-  const eg = ctx.createLinearGradient(0, L.endless.y - L.endless.h / 2, 0, L.endless.y + L.endless.h / 2);
-  eg.addColorStop(0, '#ffb347'); eg.addColorStop(1, '#e55542');
-  ctx.save(); ctx.shadowColor = '#ff8a42'; ctx.shadowBlur = 12;
-  roundBtn(L.endless.x, L.endless.y, L.endless.w, L.endless.h, eg); ctx.restore();
-  text('ENDLESS  スコアアタック', L.endless.x, L.endless.y - L.endless.h * 0.06, L.endless.h * 0.30, '#fff', { strokeColor: '#7a2518' });
-  text('時間とともに加速', L.endless.x, L.endless.y + L.endless.h * 0.25, L.endless.h * 0.16, '#fff3d0', { weight: 700, stroke: false });
 
   roundBtn(L.planet.x, L.planet.y, L.planet.w, L.planet.h, 'rgba(110,100,190,0.45)');
   rr(ctx, L.planet.x - L.planet.w / 2, L.planet.y - L.planet.h / 2, L.planet.w, L.planet.h, L.planet.h / 2);

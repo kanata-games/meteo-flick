@@ -1134,7 +1134,14 @@ function onDown(e) {
     const L = titleLayout();
     if (inRect(x, y, L.classic.x, L.classic.y, L.bw, L.bh * 1.15)) { currentMode = 'classic'; startGame(); }
     else if (inRect(x, y, L.planet.x, L.planet.y, L.bw, L.bh * 1.15)) { state = 'planet'; stateT = 0; }
+    else if (inRect(x, y, L.story.x, L.story.y, L.story.w, L.story.h * 1.25)) { state = 'story'; stateT = 0; }
+    else if (inRect(x, y, L.archive.x, L.archive.y, L.archive.w, L.archive.h * 1.25)) { state = 'archive'; stateT = 0; }
     else if (inRect(x, y, L.howto.x, L.howto.y, L.howto.w, L.howto.h * 1.3)) { state = 'howto'; stateT = 0; }
+    return;
+  }
+  if (state === 'story' || state === 'archive') {
+    const L = infoLayout();
+    if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
   if (state === 'howto') {
@@ -1738,14 +1745,21 @@ function roundBtn(x, y, w, h, fill) { rr(ctx, x - w / 2, y - h / 2, w, h, h / 2)
 
 function titleLayout() {
   const bw = Math.min(W * 0.82, 360);
-  const bh = Math.round(clamp(H * 0.078, 54, 68));
-  const cy = H * 0.55;
+  const bh = Math.round(clamp(H * 0.070, 50, 62));
+  const cy = H * 0.47;
+  const miniW = Math.min(W * 0.39, 172), miniH = Math.round(bh * 0.72);
   return {
     bw, bh,
     classic: { x: W / 2, y: cy },
-    planet: { x: W / 2, y: cy + bh * 1.42 },
-    howto: { x: W / 2, y: cy + bh * 2.62, w: Math.min(W * 0.56, 250), h: Math.round(bh * 0.72) }
+    planet: { x: W / 2, y: cy + bh * 1.34 },
+    story: { x: W / 2 - miniW * 0.54, y: cy + bh * 2.45, w: miniW, h: miniH },
+    archive: { x: W / 2 + miniW * 0.54, y: cy + bh * 2.45, w: miniW, h: miniH },
+    howto: { x: W / 2, y: cy + bh * 3.38, w: Math.min(W * 0.52, 232), h: Math.round(bh * 0.65) }
   };
+}
+function infoLayout() {
+  const bh = Math.round(clamp(H * 0.062, 44, 54));
+  return { back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.60, 250), h: bh } };
 }
 
 function howToLayout() {
@@ -1816,6 +1830,18 @@ function drawTitle() {
   text('PLANET', L.planet.x, L.planet.y - L.bh * 0.09, L.bh * 0.35, '#dff7ff', { strokeColor: '#171044' });
   text('惑星ステージ / TEST', L.planet.x, L.planet.y + L.bh * 0.25, L.bh * 0.17, '#b9b2ef', { weight: 700, stroke: false });
 
+  // STORY / ARCHIVE
+  for (const [box, label, sub, col] of [
+    [L.story, 'STORY', '観測記録', '#9ffcff'],
+    [L.archive, 'ARCHIVE', '図鑑', '#dcb9ff']
+  ]) {
+    roundBtn(box.x, box.y, box.w, box.h, 'rgba(90,78,170,0.34)');
+    rr(ctx, box.x - box.w / 2, box.y - box.h / 2, box.w, box.h, box.h / 2);
+    ctx.lineWidth = 1.3; ctx.strokeStyle = 'rgba(190,180,255,0.48)'; ctx.stroke();
+    text(label, box.x, box.y - box.h * 0.10, box.h * 0.32, col, { strokeColor: '#171044' });
+    text(sub, box.x, box.y + box.h * 0.24, box.h * 0.16, '#c7c2eb', { weight: 700, stroke: false });
+  }
+
   roundBtn(L.howto.x, L.howto.y, L.howto.w, L.howto.h, 'rgba(255,255,255,0.08)');
   rr(ctx, L.howto.x - L.howto.w / 2, L.howto.y - L.howto.h / 2, L.howto.w, L.howto.h, L.howto.h / 2);
   ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(190,180,255,0.42)'; ctx.stroke();
@@ -1823,6 +1849,24 @@ function drawTitle() {
 
   if (hi > 0) text('CLASSIC BEST  ' + hi, cx, L.howto.y + L.howto.h * 0.95, Math.min(15, W * 0.037), '#fff27a', { weight: 700 });
   text('PHASE 1 TEST BUILD', cx, H - 16, Math.min(11, W * 0.028), 'rgba(200,200,230,0.55)', { weight: 500, stroke: false });
+}
+
+function drawInfoShell(kind) {
+  ctx.fillStyle = 'rgba(8,4,24,0.56)'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  const story = kind === 'story';
+  const title = story ? 'STORY' : 'ARCHIVE';
+  const jp = story ? '観測記録' : '星間図鑑';
+  const col = story ? '#9ffcff' : '#dcb9ff';
+  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 18;
+  text(title, cx, H * 0.12, Math.min(W * 0.10, 44), '#f2fbff', { strokeColor: '#161044' }); ctx.restore();
+  text(jp, cx, H * 0.17, Math.min(15, W * 0.038), col, { weight: 800 });
+  text('DATA SHELL / TEST', cx, H * 0.48, Math.min(14, W * 0.035), '#aaa6d5', { weight: 700, stroke: false });
+  const L = infoLayout();
+  roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.45)');
+  rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,180,255,0.55)'; ctx.stroke();
+  text('タイトルへ戻る', L.back.x, L.back.y, L.back.h * 0.32, '#e8e6ff', { strokeColor: '#171044' });
 }
 
 function drawHowTo() {
@@ -2309,6 +2353,8 @@ function draw() {
   drawBg();
   if (state === 'title') { drawTitle(); drawHudBtn('mute'); return; }
   if (state === 'howto') { drawHowTo(); drawHudBtn('mute'); return; }
+  if (state === 'story') { drawInfoShell('story'); drawHudBtn('mute'); return; }
+  if (state === 'archive') { drawInfoShell('archive'); drawHudBtn('mute'); return; }
   if (state === 'planet') { drawPlanetSelect(); drawHudBtn('mute'); return; }
   drawHUDBg();
   ctx.save();

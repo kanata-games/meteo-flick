@@ -335,8 +335,8 @@ const PLANETS = {
   },
   tempest: {
     order: 3, name: 'テンペスト9', short: 'STORM', tag: '環境ギミック',
-    desc: '周期的なメテオシャワーを耐え抜け',
-    mission: '75秒 生存', goalType: 'survive', goal: 75,
+    desc: '9秒間続くメテオ嵐を耐え抜け',
+    mission: '75秒 生存 / 9秒嵐', goalType: 'survive', goal: 75,
     accent: '#b69cff'
   }
 };
@@ -344,7 +344,7 @@ const planetClear = { luna: false, gravitas: false, tempest: false };
 for (const id of Object.keys(planetClear)) {
   try { planetClear[id] = localStorage.getItem('meteoflick_planet_' + id + '_clear') === '1' || (id === 'luna' && localStorage.getItem('meteoflick_luna_clear') === '1'); } catch (e) {}
 }
-let stageMilestone = 0, stormNext = 18, stormWarned = false;
+let stageMilestone = 0, stormNext = 14, stormWarned = false, stormActive = false, stormEnd = 0, stormPulse = 0;
 const isPlanetMode = () => !!PLANETS[currentMode];
 const stageDef = () => PLANETS[currentMode] || null;
 const planetUnlocked = id => id === 'luna' || (id === 'gravitas' && planetClear.luna) || (id === 'tempest' && planetClear.gravitas);
@@ -416,7 +416,7 @@ function startGame() {
   state = 'play'; stateT = 0; paused = false; stopFast();
   groups = []; particles = []; popups = []; flyaways = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
-  stageMilestone = 0; stormNext = 18; stormWarned = false;
+  stageMilestone = 0; stormNext = 14; stormWarned = false; stormActive = false; stormEnd = 0; stormPulse = 0;
   stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
@@ -498,13 +498,38 @@ function spawnMeteor(c, color, forceSpecial) {
   live++;
   groups.push({ id: nextId++, blocks: [{ b, c, r: 0 }], y: ROWS + 1.3, vy: -fallSpeed(), fuel: 0, meteor: true, combo: 0 });
 }
-function spawnTempestWave() {
+function spawnTempestPulse() {
   const cols = [0,1,2,3,4,5,6];
   for (let i = cols.length - 1; i > 0; i--) { const j = rnd(i + 1), t = cols[i]; cols[i] = cols[j]; cols[j] = t; }
-  for (let i = 0; i < 5; i++) spawnMeteor(cols[i], null, false);
-  shake = Math.max(shake, 8);
-  popup('メテオシャワー！', W / 2, ftop + cell * 2.3, { size: 1.15, color: '#d9c8ff', life: 1.2 });
-  tone(180, 0.18, 'sawtooth', 0.09, 90);
+  const want = Math.random() < 0.34 ? 2 : 1;
+  let made = 0;
+  for (const c of cols) {
+    let ok = true;
+    for (const g of groups) {
+      const m = gcols(g).get(c);
+      if (m && g.y + m.max + 1 > ROWS + 0.55) { ok = false; break; }
+    }
+    if (!ok) continue;
+    spawnMeteor(c, null, false);
+    made++;
+    if (made >= want) break;
+  }
+  if (made) {
+    shake = Math.max(shake, 2.6);
+    if (Math.random() < 0.35) tone(150 + rnd(60), 0.08, 'sawtooth', 0.035, 90);
+  }
+}
+function startTempestStorm() {
+  stormActive = true;
+  stormWarned = false;
+  stormEnd = playT + 9;
+  stormPulse = 0;
+  shake = Math.max(shake, 10);
+  flashA = Math.max(flashA, 0.22);
+  popup('TEMPEST 9', W / 2, ftop + cell * 2.6, { size: 1.35, color: '#f0d8ff', life: 1.4 });
+  popup('9秒間のメテオ嵐！', W / 2, ftop + cell * 3.8, { size: 0.95, color: '#fff27a', life: 1.5 });
+  tone(130, 0.45, 'sawtooth', 0.12, 55);
+  buzz([30,25,30,25,60]);
 }
 function spawnRandom() {
   const n = Math.random() < 0.18 + level * 0.015 ? 2 : 1;
@@ -1018,7 +1043,18 @@ function stepPlay(dt) {
     if (level === 4) popup('新しい色が追加！', W / 2, ftop + cell * 6.2, { size: 0.95, color: '#dcb9ff', life: 1.6 });
   }
   const fast = fastOn();
-  if (!debugNoSpawn) { spawnT -= dt * (fast ? P.FSX : 1); if (spawnT <= 0) { spawnT += spawnInterval(); spawnRandom(); } }
+  if (!debugNoSpawn) {
+    if (currentMode === 'tempest' && stormActive) {
+      stormPulse -= dt * (fast ? 1.25 : 1);
+      if (stormPulse <= 0) {
+        stormPulse += 0.60;
+        spawnTempestPulse();
+      }
+    } else {
+      spawnT -= dt * (fast ? P.FSX : 1);
+      if (spawnT <= 0) { spawnT += spawnInterval(); spawnRandom(); }
+    }
+  }
   if (fast) { fastAcc += dt * P.FB2 * (1 + (level - 1) * 0.1); const k = fastAcc | 0; if (k) { score += k; fastAcc -= k; } }
 
   // 物理（サブステップ）
@@ -1026,7 +1062,11 @@ function stepPlay(dt) {
   const h = dt / steps;
   for (let s = 0; s < steps; s++) {
     for (const g of groups) {
-      if (g.meteor) { g.vy = -fallSpeed() * (fastOn() ? P.FX : 1); g.y += g.vy * h; continue; }
+      if (g.meteor) {
+        const stormMul = currentMode === 'tempest' && stormActive ? 1.28 : 1;
+        g.vy = -fallSpeed() * stormMul * (fastOn() ? P.FX : 1);
+        g.y += g.vy * h; continue;
+      }
       const w = g.blocks.length; let fire = 0, cm = 0, anchorN = 0;
       for (const e of g.blocks) { if (e.b.state === 'fire') fire += e.b.re ? P.RI : 1; if (e.b.special === 'anchor') anchorN++; cm |= 1 << e.c; }
       const effW = w + (currentMode === 'gravitas' ? anchorN * 1.8 : 0);
@@ -1091,12 +1131,21 @@ function stepPlay(dt) {
   } else if (currentMode === 'gravitas') {
     if (stats.anchors >= PLANETS.gravitas.goal) { stageClear(); return; }
   } else if (currentMode === 'tempest') {
-    if (!stormWarned && playT >= stormNext - 2) {
-      stormWarned = true;
-      popup('⚠ メテオシャワー接近', W / 2, ftop + cell * 3.2, { size: 0.95, color: '#ffd1ff', life: 1.5 });
-    }
-    if (playT >= stormNext) {
-      spawnTempestWave(); stormNext += 18; stormWarned = false;
+    if (!stormActive) {
+      if (!stormWarned && playT >= stormNext - 3) {
+        stormWarned = true;
+        popup('⚠ TEMPEST 9 接近', W / 2, ftop + cell * 3.0, { size: 1.0, color: '#ffd1ff', life: 1.6 });
+        popup('3秒後、メテオ嵐', W / 2, ftop + cell * 4.0, { size: 0.78, color: '#d8c9ff', life: 1.5 });
+        tone(280, 0.12, 'square', 0.05, 180);
+      }
+      if (playT >= stormNext) startTempestStorm();
+    } else if (playT >= stormEnd) {
+      stormActive = false;
+      stormNext = playT + 15;
+      stormWarned = false;
+      spawnT = Math.max(spawnT, 1.2);
+      popup('嵐が止んだ…', W / 2, ftop + cell * 3.2, { size: 0.9, color: '#bfe8ff', life: 1.4 });
+      tone(420, 0.16, 'triangle', 0.06, 620);
     }
     if (playT >= PLANETS.tempest.goal) { stageClear(); return; }
   }
@@ -1134,12 +1183,20 @@ function drawBg() {
   }
 
   if (pm && currentMode === 'tempest') {
-    ctx.save(); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(time * 3);
-    ctx.strokeStyle = '#d8c9ff'; ctx.lineWidth = 1.5;
-    for (let i = 0; i < 12; i++) {
-      const x = (i * 83 + time * 120) % (W + 120) - 60;
-      const y = (i * 137 + time * 85) % H;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 28, y + 52); ctx.stroke();
+    const nst = stormActive ? 30 : 8;
+    ctx.save();
+    ctx.globalAlpha = stormActive ? 0.34 + 0.14 * Math.sin(time * 8) : 0.10 + 0.04 * Math.sin(time * 3);
+    ctx.strokeStyle = stormActive ? '#f1e6ff' : '#b9afe6';
+    ctx.lineWidth = stormActive ? 2.0 : 1.2;
+    const spx = stormActive ? 330 : 90, spy = stormActive ? 240 : 65;
+    for (let i = 0; i < nst; i++) {
+      const x = (i * 83 + time * spx) % (W + 160) - 80;
+      const y = (i * 137 + time * spy) % H;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - (stormActive ? 48 : 24), y + (stormActive ? 82 : 44)); ctx.stroke();
+    }
+    if (stormActive) {
+      ctx.globalAlpha = 0.06 + 0.04 * Math.sin(time * 12);
+      ctx.fillStyle = '#e8dcff'; ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
   }
@@ -1326,8 +1383,13 @@ function drawHUD() {
     text(str, cxm, hudH * 0.5, sz * pulse, '#ffb84a');
   } else if (isPlanetMode()) {
     const d = stageDef();
-    text(d.tag, cxm, hudH * 0.28, Math.min(ls, 12), '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
-    text(d.short, cxm, hudH * 0.64, vs * 0.64, d.accent);
+    if (currentMode === 'tempest' && stormActive) {
+      text('嵐 残り', cxm, hudH * 0.28, Math.min(ls, 12), '#ffd1ff', Object.assign({}, lbl, { align: 'center' }));
+      text(Math.max(0, stormEnd - playT).toFixed(1) + 's', cxm, hudH * 0.64, vs * 0.62, '#f0d8ff');
+    } else {
+      text(d.tag, cxm, hudH * 0.28, Math.min(ls, 12), '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
+      text(d.short, cxm, hudH * 0.64, vs * 0.64, d.accent);
+    }
   } else {
     text('自己ベスト', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
     text(String(Math.max(hi, score)), cxm, hudH * 0.64, vs * 0.75, '#fff27a');

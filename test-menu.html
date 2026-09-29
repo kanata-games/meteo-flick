@@ -121,6 +121,7 @@ const FALL_W = [null, { g: 11, t: 12 }, { g: 7.5, t: 9 }, null, null, { g: 3.8, 
 const fallStage = nc => {
   const base = FALL_W[clamp(nc, 1, 7)] || { g: P.GF, t: P.TF };
   if (currentMode === 'luna') return { g: base.g * 0.48, t: base.t * 0.64 };
+  if (currentMode === 'gravitas') return { g: base.g * 1.28, t: base.t * 1.18 };
   return base;
 };
 const CHAIN_T = 1.5; // 落ちてきた塊のブロックが着地後に「再点火コンボ」を引き継ぐ秒数（燃えカスの間はずっと保持）
@@ -318,10 +319,35 @@ function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e
 // ===================== ゲーム状態 =====================
 let state = 'title', stateT = 0;
 let currentMode = 'classic';
-const LUNA_GOAL = 60;
-let lunaCleared = false;
-let lunaMilestone = 0;
-try { lunaCleared = localStorage.getItem('meteoflick_luna_clear') === '1'; } catch (e) {}
+let selectedPlanet = 'luna';
+const PLANETS = {
+  luna: {
+    order: 1, name: 'ルナ・ヴェイル', short: 'LUNA', tag: '低重力',
+    desc: '打ち上げた塊が長く滞空する',
+    mission: 'メテオを60個 射出', goalType: 'cleared', goal: 60,
+    accent: '#9ffcff'
+  },
+  gravitas: {
+    order: 2, name: 'グラヴィタス', short: 'GRAV', tag: '高重力＋特殊メテオ',
+    desc: '重いアンカー・メテオを宇宙へ運べ',
+    mission: 'アンカーを8個 射出', goalType: 'anchors', goal: 8,
+    accent: '#ffb06a'
+  },
+  tempest: {
+    order: 3, name: 'テンペスト9', short: 'STORM', tag: '環境ギミック',
+    desc: '周期的なメテオシャワーを耐え抜け',
+    mission: '75秒 生存', goalType: 'survive', goal: 75,
+    accent: '#b69cff'
+  }
+};
+const planetClear = { luna: false, gravitas: false, tempest: false };
+for (const id of Object.keys(planetClear)) {
+  try { planetClear[id] = localStorage.getItem('meteoflick_planet_' + id + '_clear') === '1' || (id === 'luna' && localStorage.getItem('meteoflick_luna_clear') === '1'); } catch (e) {}
+}
+let stageMilestone = 0, stormNext = 18, stormWarned = false;
+const isPlanetMode = () => !!PLANETS[currentMode];
+const stageDef = () => PLANETS[currentMode] || null;
+const planetUnlocked = id => id === 'luna' || (id === 'gravitas' && planetClear.luna) || (id === 'tempest' && planetClear.gravitas);
 let rest = [], groups = [], particles = [], popups = [], flyaways = [];
 const drags = new Map();
 let score = 0, level = 1, levelT = 0, spawnT = 0, playT = 0, shake = 0, flashA = 0, maxCombo = 0;
@@ -329,12 +355,12 @@ let hi = 0, newHi = false, debugNoSpawn = false, frozen = false, paused = false;
 let fastId = null, fastKey = false, fastAcc = 0; // 早送りボタンを押している pointerId
 const fastOn = () => state === 'play' && !paused && (fastId !== null || fastKey);
 function stopFast() { if (fastId !== null) { try { cv.releasePointerCapture(fastId); } catch (e) {} } fastId = null; fastKey = false; }
-let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
+let stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, pushes: 0, reig: 0, stoneMoves: 0 };
 let nextId = 1, live = 0; // live: 盤上に存在するブロック数（整合性チェック用）
 try { hi = +localStorage.getItem('meteoflick_hi') || 0; } catch (e) {}
 
-function newBlock(color) { return { id: nextId++, color, state: 'norm', t: 0, ay: 0, flash: 0, squash: 0, dragOff: 0, dragging: false, chain: 0, chainT: 0 }; }
-const numColors = () => currentMode === 'luna' ? 5 : (level >= 4 ? 6 : 5);
+function newBlock(color) { return { id: nextId++, color, special: null, state: 'norm', t: 0, ay: 0, flash: 0, squash: 0, dragOff: 0, dragging: false, chain: 0, chainT: 0 }; }
+const numColors = () => isPlanetMode() ? 5 : (level >= 4 ? 6 : 5);
 // 落下（未着地メテオ）速度と出現間隔（CLASSIC基準）
 const T = { FS0: 1.6, FSL: 0.25, FSMAX: 5, SI0: 1.7, SIL: 0.1, SIMIN: 0.45 };
 const BASE_P = Object.assign({}, P);
@@ -343,9 +369,14 @@ function applyModeRules() {
   Object.assign(P, BASE_P);
   Object.assign(T, BASE_T);
   if (currentMode === 'luna') {
-    // ルナ・ヴェイル: 低重力。上昇は長く、落下もゆっくり。CLASSICの操作感は維持する。
     Object.assign(P, { G: 5.2, TH: 24.5, TERM: 11, GF: 2.7, TF: 4.2, PV: 0.62, RF: 0.085, SNAP: 0.62 });
     Object.assign(T, { FS0: 1.25, FSL: 0.18, FSMAX: 4.0, SI0: 1.75, SIL: 0.085, SIMIN: 0.55 });
+  } else if (currentMode === 'gravitas') {
+    Object.assign(P, { G: 15.5, TH: 39, TERM: 18, GF: 7.5, TF: 10.5, PV: 0.40, RF: 0.05, SNAP: 0.42 });
+    Object.assign(T, { FS0: 1.55, FSL: 0.24, FSMAX: 5.2, SI0: 1.65, SIL: 0.10, SIMIN: 0.48 });
+  } else if (currentMode === 'tempest') {
+    Object.assign(P, { G: 10.5, TH: 34.5, TERM: 16, GF: 5.2, TF: 7.2, PV: 0.5, RF: 0.06, SNAP: 0.5 });
+    Object.assign(T, { FS0: 1.55, FSL: 0.24, FSMAX: 5.0, SI0: 1.85, SIL: 0.08, SIMIN: 0.60 });
   }
 }
 const fallSpeed = () => Math.min(T.FSMAX, T.FS0 + T.FSL * (level - 1));
@@ -370,6 +401,13 @@ function initBoard() {
       rest[c].push(newBlock(col)); live++;
     }
   }
+  if (currentMode === 'gravitas') {
+    const pool = [];
+    for (let c = 0; c < COLS; c++) for (const b of rest[c]) pool.push(b);
+    for (let n = 0; n < 2 && pool.length; n++) {
+      const i = rnd(pool.length); pool.splice(i, 1)[0].special = 'anchor';
+    }
+  }
 }
 
 function startGame() {
@@ -378,24 +416,29 @@ function startGame() {
   state = 'play'; stateT = 0; paused = false; stopFast();
   groups = []; particles = []; popups = []; flyaways = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
-  lunaMilestone = 0;
-  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
+  stageMilestone = 0; stormNext = 18; stormWarned = false;
+  stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, anchors: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
-  if (currentMode === 'luna') {
-    popup('ルナ・ヴェイル', W / 2, ftop + cell * 3.4, { size: 1.35, color: '#bfe8ff', life: 1.5 });
-    popup('メテオを ' + LUNA_GOAL + '個 射出せよ！', W / 2, ftop + cell * 4.7, { size: 0.95, color: '#fff27a', life: 1.7 });
+  if (isPlanetMode()) {
+    const d = stageDef();
+    popup(d.name, W / 2, ftop + cell * 3.4, { size: 1.25, color: d.accent, life: 1.5 });
+    popup(d.mission, W / 2, ftop + cell * 4.7, { size: 0.92, color: '#fff27a', life: 1.7 });
   } else {
     popup('スタート！', W / 2, ftop + cell * 4, { size: 1.6, color: '#fff27a', life: 1.1 });
   }
 }
 
 function stageClear() {
-  if (state !== 'play' || currentMode !== 'luna') return;
+  if (state !== 'play' || !isPlanetMode()) return;
+  const id = currentMode;
   state = 'clear'; stateT = 0; paused = false; stopFast();
-  for (const id of [...drags.keys()]) endDrag(id);
-  lunaCleared = true;
-  try { localStorage.setItem('meteoflick_luna_clear', '1'); } catch (e) {}
+  for (const pid of [...drags.keys()]) endDrag(pid);
+  planetClear[id] = true;
+  try {
+    localStorage.setItem('meteoflick_planet_' + id + '_clear', '1');
+    if (id === 'luna') localStorage.setItem('meteoflick_luna_clear', '1');
+  } catch (e) {}
   shake = 8; flashA = 0.35;
   sfx.level(); buzz([40, 35, 80]);
 }
@@ -449,9 +492,19 @@ function gcols(g) {
   for (const e of g.blocks) { const o = m.get(e.c); if (!o) m.set(e.c, { min: e.r, max: e.r }); else { if (e.r < o.min) o.min = e.r; if (e.r > o.max) o.max = e.r; } }
   return m;
 }
-function spawnMeteor(c, color) {
-  const b = newBlock(color == null ? rnd(numColors()) : color); live++;
+function spawnMeteor(c, color, forceSpecial) {
+  const b = newBlock(color == null ? rnd(numColors()) : color);
+  if (forceSpecial === 'anchor' || (currentMode === 'gravitas' && forceSpecial !== false && Math.random() < 0.18)) b.special = 'anchor';
+  live++;
   groups.push({ id: nextId++, blocks: [{ b, c, r: 0 }], y: ROWS + 1.3, vy: -fallSpeed(), fuel: 0, meteor: true, combo: 0 });
+}
+function spawnTempestWave() {
+  const cols = [0,1,2,3,4,5,6];
+  for (let i = cols.length - 1; i > 0; i--) { const j = rnd(i + 1), t = cols[i]; cols[i] = cols[j]; cols[j] = t; }
+  for (let i = 0; i < 5; i++) spawnMeteor(cols[i], null, false);
+  shake = Math.max(shake, 8);
+  popup('メテオシャワー！', W / 2, ftop + cell * 2.3, { size: 1.15, color: '#d9c8ff', life: 1.2 });
+  tone(180, 0.18, 'sawtooth', 0.09, 90);
 }
 function spawnRandom() {
   const n = Math.random() < 0.18 + level * 0.015 ? 2 : 1;
@@ -616,7 +669,9 @@ function clearGroup(g) {
   for (const e of g.blocks) if (e.b.state === 'fire') fire++;
   const mult = Math.max(1, g.combo);
   const pts = Math.round((w * 50 + fire * 20) * (1 + 0.5 * (mult - 1)) * (1 + (level - 1) * 0.1));
-  score += pts; stats.clears++; stats.cleared += w; live -= w;
+  const anchorOut = g.blocks.reduce((n, e) => n + (e.b.special === 'anchor' ? 1 : 0), 0);
+  score += pts; stats.clears++; stats.cleared += w; stats.anchors += anchorOut; live -= w;
+  if (currentMode === 'gravitas' && anchorOut) popup('アンカー射出 +' + anchorOut, W / 2, ftop + cell * 3.15, { size: 0.92, color: '#ffb06a', life: 1.2 });
   const cols = new Set();
   for (const e of g.blocks) {
     cols.add(e.c);
@@ -876,7 +931,14 @@ function onDown(e) {
   }
   if (state === 'planet') {
     const L = planetLayout();
-    if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2)) { currentMode = 'luna'; startGame(); }
+    for (const card of L.cards) {
+      if (inRect(x, y, card.x, card.y, card.w, card.h)) {
+        if (planetUnlocked(card.id)) { selectedPlanet = card.id; tone(520, 0.05, 'triangle', 0.06, 720); }
+        else { tone(170, 0.08, 'square', 0.04, 130); buzz(15); }
+        return;
+      }
+    }
+    if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2) && planetUnlocked(selectedPlanet)) { currentMode = selectedPlanet; startGame(); }
     else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
     return;
   }
@@ -965,11 +1027,12 @@ function stepPlay(dt) {
   for (let s = 0; s < steps; s++) {
     for (const g of groups) {
       if (g.meteor) { g.vy = -fallSpeed() * (fastOn() ? P.FX : 1); g.y += g.vy * h; continue; }
-      const w = g.blocks.length; let fire = 0, cm = 0;
-      for (const e of g.blocks) { if (e.b.state === 'fire') fire += e.b.re ? P.RI : 1; cm |= 1 << e.c; }
+      const w = g.blocks.length; let fire = 0, cm = 0, anchorN = 0;
+      for (const e of g.blocks) { if (e.b.state === 'fire') fire += e.b.re ? P.RI : 1; if (e.b.special === 'anchor') anchorN++; cm |= 1 << e.c; }
+      const effW = w + (currentMode === 'gravitas' ? anchorN * 1.8 : 0);
       let a = -P.G, term = P.TERM, nc = 0; for (let m = cm; m; m &= m - 1) nc++;
       if (g.fuel > 0 && fire > 0) {
-        a += P.TH * Math.pow(Math.min(1, fire / w * (1 + P.HB * Math.min(nc - 1, P.HC))), P.WP);
+        a += P.TH * Math.pow(Math.min(1, fire / effW * (1 + P.HB * Math.min(nc - 1, P.HC))), P.WP);
       } else if (g.vy <= 0) { const fs = fallStage(nc); a = -fs.g; term = fs.t; } // 落ちてくる塊: 幅が広いほどふんわり（押し上げの猶予）
       g.fuel = Math.max(0, g.fuel - h);
       g.vy += a * h; if (g.vy < -term) g.vy = term === P.TERM ? -term : Math.min(-term, g.vy + P.G * 3 * h);
@@ -1015,41 +1078,70 @@ function stepPlay(dt) {
   for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 
   if (currentMode === 'luna') {
-    if (lunaMilestone < 1 && stats.cleared >= 20) {
-      lunaMilestone = 1;
+    if (stageMilestone < 1 && stats.cleared >= 20) {
+      stageMilestone = 1;
       popup('軌道安定化 1/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
     }
-    if (lunaMilestone < 2 && stats.cleared >= 40) {
-      lunaMilestone = 2;
+    if (stageMilestone < 2 && stats.cleared >= 40) {
+      stageMilestone = 2;
       popup('軌道安定化 2/3', W / 2, ftop + cell * 3.2, { size: 1.0, color: '#9ffcff', life: 1.4 });
       popup('あと20個！', W / 2, ftop + cell * 4.3, { size: 0.85, color: '#fff27a', life: 1.4 });
     }
-    if (stats.cleared >= LUNA_GOAL) { stageClear(); return; }
+    if (stats.cleared >= PLANETS.luna.goal) { stageClear(); return; }
+  } else if (currentMode === 'gravitas') {
+    if (stats.anchors >= PLANETS.gravitas.goal) { stageClear(); return; }
+  } else if (currentMode === 'tempest') {
+    if (!stormWarned && playT >= stormNext - 2) {
+      stormWarned = true;
+      popup('⚠ メテオシャワー接近', W / 2, ftop + cell * 3.2, { size: 0.95, color: '#ffd1ff', life: 1.5 });
+    }
+    if (playT >= stormNext) {
+      spawnTempestWave(); stormNext += 18; stormWarned = false;
+    }
+    if (playT >= PLANETS.tempest.goal) { stageClear(); return; }
   }
   for (let c = 0; c < COLS; c++) if (rest[c].length > ROWS) { gameOver(); break; }
 }
 
 // ===================== 描画 =====================
 function drawBg() {
-  const luna = currentMode === 'luna' && (state === 'play' || state === 'over' || state === 'clear');
+  const pm = isPlanetMode() && (state === 'play' || state === 'over' || state === 'clear');
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  if (luna) { g.addColorStop(0, '#030b20'); g.addColorStop(0.55, '#102a4a'); g.addColorStop(1, '#172747'); }
+  if (pm && currentMode === 'luna') { g.addColorStop(0, '#030b20'); g.addColorStop(0.55, '#102a4a'); g.addColorStop(1, '#172747'); }
+  else if (pm && currentMode === 'gravitas') { g.addColorStop(0, '#180a0a'); g.addColorStop(0.55, '#3b1720'); g.addColorStop(1, '#54251f'); }
+  else if (pm && currentMode === 'tempest') { g.addColorStop(0, '#090821'); g.addColorStop(0.55, '#242056'); g.addColorStop(1, '#15384b'); }
   else { g.addColorStop(0, '#05030f'); g.addColorStop(0.55, '#140a33'); g.addColorStop(1, '#2a0f45'); }
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
   const n = ctx.createRadialGradient(W * 0.75, H * 0.25, 0, W * 0.75, H * 0.25, W * 0.8);
-  n.addColorStop(0, luna ? 'rgba(90,190,255,0.24)' : 'rgba(90,60,200,0.22)'); n.addColorStop(1, luna ? 'rgba(70,150,255,0)' : 'rgba(90,60,200,0)');
+  const glow = currentMode === 'luna' ? '90,190,255' : currentMode === 'gravitas' ? '255,100,60' : currentMode === 'tempest' ? '160,120,255' : '90,60,200';
+  n.addColorStop(0, `rgba(${glow},0.24)`); n.addColorStop(1, `rgba(${glow},0)`);
   ctx.fillStyle = n; ctx.fillRect(0, 0, W, H);
-  if (luna) {
+
+  if (pm) {
     const r = Math.min(W * 0.38, 170), px = W * 0.14, py = H * 0.82;
+    const pc = currentMode === 'luna' ? ['220,245,255','100,165,220'] : currentMode === 'gravitas' ? ['255,205,150','170,70,55'] : ['225,205,255','105,100,190'];
     const pg = ctx.createRadialGradient(px - r * 0.25, py - r * 0.28, r * 0.08, px, py, r);
-    pg.addColorStop(0, 'rgba(220,245,255,0.30)'); pg.addColorStop(0.52, 'rgba(100,165,220,0.18)'); pg.addColorStop(1, 'rgba(40,80,140,0)');
+    pg.addColorStop(0, `rgba(${pc[0]},0.30)`); pg.addColorStop(0.52, `rgba(${pc[1]},0.18)`); pg.addColorStop(1, 'rgba(40,80,140,0)');
     ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
   }
-  for (const s of stars) {
-    const y = (s.y + time * (6 + s.z * 30)) % H;
-    const a = 0.35 + 0.65 * Math.abs(Math.sin(s.tw + time * (0.8 + s.z)));
-    ctx.fillStyle = `rgba(220,225,255,${a * (0.35 + s.z * 0.65)})`;
-    const sz = 0.6 + s.z * 1.6; ctx.fillRect(s.x, y, sz, sz);
+
+  for (const st of stars) {
+    const y = (st.y + time * (6 + st.z * 30)) % H;
+    const a = 0.35 + 0.65 * Math.abs(Math.sin(st.tw + time * (0.8 + st.z)));
+    ctx.fillStyle = `rgba(220,225,255,${a * (0.35 + st.z * 0.65)})`;
+    const sz = 0.6 + st.z * 1.6; ctx.fillRect(st.x, y, sz, sz);
+  }
+
+  if (pm && currentMode === 'tempest') {
+    ctx.save(); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(time * 3);
+    ctx.strokeStyle = '#d8c9ff'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 12; i++) {
+      const x = (i * 83 + time * 120) % (W + 120) - 60;
+      const y = (i * 137 + time * 85) % H;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 28, y + 52); ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 
@@ -1078,6 +1170,8 @@ function drawField() {
   // 地面
   const gg = ctx.createLinearGradient(0, fb, 0, H);
   if (currentMode === 'luna') { gg.addColorStop(0, '#5b87b4'); gg.addColorStop(0.15, '#294d70'); gg.addColorStop(1, '#10243c'); }
+  else if (currentMode === 'gravitas') { gg.addColorStop(0, '#9c5946'); gg.addColorStop(0.15, '#663329'); gg.addColorStop(1, '#301617'); }
+  else if (currentMode === 'tempest') { gg.addColorStop(0, '#6a72b5'); gg.addColorStop(0.15, '#38436f'); gg.addColorStop(1, '#18243a'); }
   else { gg.addColorStop(0, '#6b4aa8'); gg.addColorStop(0.15, '#3a2366'); gg.addColorStop(1, '#1a0d33'); }
   ctx.fillStyle = gg; ctx.fillRect(fx - 6, fb, fw + 12, H - fb);
   if (danger && state === 'play') {
@@ -1117,6 +1211,19 @@ function drawBlock(b, x, y) {
   }
   if (b.flash > 0) { ctx.globalAlpha = b.flash * 0.85; ctx.drawImage(SP.white, cx - sx / 2, cy - sy / 2, sx, sy); ctx.globalAlpha = 1; }
   if (b.dragging) { ctx.globalAlpha = 0.9; ctx.drawImage(SP.sel, cx - sx / 2, cy - sy / 2, sx, sy); ctx.globalAlpha = 1; }
+  if (b.special === 'anchor') {
+    ctx.save();
+    ctx.globalAlpha = b.state === 'ash' ? 0.55 : 0.95;
+    ctx.lineWidth = Math.max(2, cell * 0.055);
+    ctx.strokeStyle = '#17131f';
+    ctx.fillStyle = 'rgba(15,12,24,0.62)';
+    ctx.beginPath(); ctx.arc(cx, cy, cell * 0.29, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#f4c18c'; ctx.lineWidth = Math.max(2, cell * 0.045); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy - cell * 0.16); ctx.lineTo(cx, cy + cell * 0.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - cell * 0.13, cy - cell * 0.02); ctx.lineTo(cx + cell * 0.13, cy - cell * 0.02); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy + cell * 0.08, cell * 0.15, 0.15, Math.PI - 0.15); ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawBlocks() {
@@ -1201,26 +1308,26 @@ function drawHUD() {
   text('スコア', pad, hudH * 0.28, ls, '#a9a3d6', lbl);
   text(String(score), pad, hudH * 0.64, vs, '#ffffff', { align: 'left' });
 
-  if (currentMode === 'luna') {
-    text('射出', lx, hudH * 0.28, ls, '#a9c8ff', Object.assign({}, lbl, { align: 'right' }));
-    text(Math.min(stats.cleared, LUNA_GOAL) + '/' + LUNA_GOAL, lx, hudH * 0.64, vs * 0.78, '#9ffcff', { align: 'right' });
-  } else {
-    text('レベル', lx, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'right' }));
-    text(String(level), lx, hudH * 0.64, vs, '#7affb0', { align: 'right' });
-  }
+  let rLabel = 'レベル', rValue = String(level), rColor = '#7affb0', rScale = 1, ratio = levelT / LEVEL_TIME;
+  if (currentMode === 'luna') { rLabel = '射出'; rValue = Math.min(stats.cleared, PLANETS.luna.goal) + '/' + PLANETS.luna.goal; rColor = '#9ffcff'; rScale = 0.78; ratio = Math.min(1, stats.cleared / PLANETS.luna.goal); }
+  else if (currentMode === 'gravitas') { rLabel = 'アンカー'; rValue = Math.min(stats.anchors, PLANETS.gravitas.goal) + '/' + PLANETS.gravitas.goal; rColor = '#ffb06a'; rScale = 0.78; ratio = Math.min(1, stats.anchors / PLANETS.gravitas.goal); }
+  else if (currentMode === 'tempest') { rLabel = '残り'; rValue = Math.max(0, Math.ceil(PLANETS.tempest.goal - playT)) + 's'; rColor = '#cdb8ff'; rScale = 0.82; ratio = Math.min(1, playT / PLANETS.tempest.goal); }
+
+  text(rLabel, lx, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'right' }));
+  text(rValue, lx, hudH * 0.64, vs * rScale, rColor, { align: 'right' });
 
   const sR = pad + Math.max(textW('スコア', ls, 700), textW(String(score), vs));
-  const rightStr = currentMode === 'luna' ? (Math.min(stats.cleared, LUNA_GOAL) + '/' + LUNA_GOAL) : String(level);
-  const lL = lx - Math.max(textW(currentMode === 'luna' ? '射出' : 'レベル', ls, 700), textW(rightStr, vs * (currentMode === 'luna' ? 0.78 : 1)));
+  const lL = lx - Math.max(textW(rLabel, ls, 700), textW(rValue, vs * rScale));
   const cxm = (sR + lL) / 2, avail = Math.max(40, lL - sR - 12);
   let combo = 0; for (const gg of groups) if (!gg.meteor && gg.combo > combo) combo = gg.combo;
   if (combo >= 2) {
     const pulse = 1 + 0.08 * Math.sin(time * 18), str = 'コンボ ×' + combo;
     const sz = Math.min(vs * 0.85, vs * 0.85 * avail / textW(str, vs * 0.85));
     text(str, cxm, hudH * 0.5, sz * pulse, '#ffb84a');
-  } else if (currentMode === 'luna') {
-    text('低重力', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
-    text('LUNA', cxm, hudH * 0.64, vs * 0.68, '#bfe8ff');
+  } else if (isPlanetMode()) {
+    const d = stageDef();
+    text(d.tag, cxm, hudH * 0.28, Math.min(ls, 12), '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
+    text(d.short, cxm, hudH * 0.64, vs * 0.64, d.accent);
   } else {
     text('自己ベスト', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
     text(String(Math.max(hi, score)), cxm, hudH * 0.64, vs * 0.75, '#fff27a');
@@ -1228,11 +1335,8 @@ function drawHUD() {
   drawHudBtn('pause'); drawHudBtn('fast');
 
   ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(fx, hudH - 3, cell * COLS, 3);
-  if (currentMode === 'luna') {
-    ctx.fillStyle = '#9ffcff'; ctx.fillRect(fx, hudH - 3, cell * COLS * Math.min(1, stats.cleared / LUNA_GOAL), 3);
-  } else {
-    ctx.fillStyle = '#7affb0'; ctx.fillRect(fx, hudH - 3, cell * COLS * (levelT / LEVEL_TIME), 3);
-  }
+  ctx.fillStyle = isPlanetMode() ? stageDef().accent : '#7affb0';
+  ctx.fillRect(fx, hudH - 3, cell * COLS * ratio, 3);
 }
 
 function drawHudBtn(kind) {
@@ -1311,10 +1415,16 @@ function howToLayout() {
 }
 
 function planetLayout() {
-  const bh = Math.round(clamp(H * 0.068, 46, 58));
+  const bh = Math.round(clamp(H * 0.060, 44, 54));
+  const cardH = Math.round(clamp(H * 0.105, 70, 86));
+  const gap = Math.round(clamp(H * 0.012, 8, 12));
+  const top = H * 0.255;
+  const cardW = Math.min(W * 0.90, 410);
+  const cards = ['luna','gravitas','tempest'].map((id, i) => ({ id, x: W / 2, y: top + cardH / 2 + i * (cardH + gap), w: cardW, h: cardH }));
   return {
-    start: { x: W / 2, y: H * 0.73, w: Math.min(W * 0.72, 310), h: bh },
-    back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.58, 240), h: Math.round(bh * 0.86) }
+    cards,
+    start: { x: W / 2, y: top + 3 * (cardH + gap) + bh * 0.52, w: Math.min(W * 0.74, 320), h: bh },
+    back: { x: W / 2, y: H - Math.max(20, H * 0.036), w: Math.min(W * 0.54, 225), h: Math.round(bh * 0.82) }
   };
 }
 function clearLayout() {
@@ -1422,37 +1532,53 @@ function drawHowTo() {
 
 function drawPlanetSelect() {
   ctx.fillStyle = 'rgba(8,4,24,0.35)'; ctx.fillRect(0, 0, W, H);
-  const cx = W / 2;
-  const ts = Math.min(W * 0.095, 44);
+  const cx = W / 2, L = planetLayout();
+  const ts = Math.min(W * 0.090, 42);
   ctx.save(); ctx.shadowColor = '#6aa8ff'; ctx.shadowBlur = 20;
-  text('PLANET', cx, H * 0.14, ts, '#dff7ff', { strokeColor: '#161044' }); ctx.restore();
-  text('星間航路', cx, H * 0.14 + ts * 0.72, ts * 0.34, '#a9c8ff', { weight: 800 });
+  text('PLANET', cx, H * 0.105, ts, '#dff7ff', { strokeColor: '#161044' }); ctx.restore();
+  text('星間航路', cx, H * 0.105 + ts * 0.70, ts * 0.32, '#a9c8ff', { weight: 800 });
+  text('惑星ごとの物理・特殊ルールを攻略', cx, H * 0.19, Math.min(12, W * 0.031), '#aaa6d5', { weight: 700, stroke: false });
 
-  // Phase 1 only exposes the shell. Planet rules are added in the next test step.
-  const py = H * 0.46, r = Math.min(W * 0.17, 72);
-  const grad = ctx.createRadialGradient(cx - r * 0.25, py - r * 0.3, r * 0.1, cx, py, r);
-  grad.addColorStop(0, '#d8eeff'); grad.addColorStop(0.45, '#7a9cff'); grad.addColorStop(1, '#28306f');
-  ctx.save(); ctx.shadowColor = '#6aa8ff'; ctx.shadowBlur = 28;
-  ctx.beginPath(); ctx.arc(cx, py, r, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill(); ctx.restore();
-  ctx.beginPath(); ctx.arc(cx, py, r * 1.26, Math.PI * 0.1, Math.PI * 1.12);
-  ctx.lineWidth = Math.max(3, r * 0.07); ctx.strokeStyle = 'rgba(180,210,255,0.45)'; ctx.stroke();
+  const palette = {
+    luna: ['#d8eeff','#7a9cff','#28306f'],
+    gravitas: ['#ffd0a2','#c65e3b','#55222a'],
+    tempest: ['#e6d5ff','#8266d8','#263058']
+  };
+  for (const card of L.cards) {
+    const d = PLANETS[card.id], unlocked = planetUnlocked(card.id), selected = selectedPlanet === card.id;
+    rr(ctx, card.x - card.w / 2, card.y - card.h / 2, card.w, card.h, 16);
+    ctx.fillStyle = selected && unlocked ? 'rgba(100,120,210,0.24)' : unlocked ? 'rgba(255,255,255,0.055)' : 'rgba(80,75,100,0.055)'; ctx.fill();
+    ctx.lineWidth = selected ? 2.3 : 1.2;
+    ctx.strokeStyle = selected && unlocked ? d.accent : unlocked ? 'rgba(170,170,220,0.30)' : 'rgba(110,105,135,0.20)'; ctx.stroke();
 
-  text('第1惑星', cx, py + r * 1.42, Math.min(15, W * 0.04), '#a9c8ff', { weight: 700 });
-  text('ルナ・ヴェイル', cx, py + r * 1.82, Math.min(22, W * 0.055), '#fff', { weight: 900 });
-  text('低重力：打ち上げた塊が長く滞空する', cx, py + r * 2.18, Math.min(13, W * 0.033), '#bfe8ff', { weight: 700 });
-  text('MISSION　メテオを ' + LUNA_GOAL + '個 射出', cx, py + r * 2.50, Math.min(13, W * 0.033), '#fff27a', { weight: 800 });
-  if (lunaCleared) text('★ CLEAR', cx, py - r * 1.33, Math.min(14, W * 0.036), '#fff27a', { weight: 900 });
+    const r = card.h * 0.31, px = card.x - card.w * 0.36;
+    const pc = palette[card.id];
+    const pg = ctx.createRadialGradient(px - r * 0.25, card.y - r * 0.25, r * 0.08, px, card.y, r);
+    pg.addColorStop(0, pc[0]); pg.addColorStop(0.50, pc[1]); pg.addColorStop(1, pc[2]);
+    ctx.globalAlpha = unlocked ? 1 : 0.28;
+    ctx.beginPath(); ctx.arc(px, card.y, r, 0, Math.PI * 2); ctx.fillStyle = pg; ctx.fill();
+    ctx.globalAlpha = 1;
 
-  const L = planetLayout();
+    const tx = card.x - card.w * 0.24;
+    text('第' + d.order + '惑星  ' + d.name, tx, card.y - card.h * 0.20, Math.min(16, W * 0.039), unlocked ? '#fff' : '#77748b', { align: 'left', weight: 900 });
+    text(d.tag, tx, card.y + card.h * 0.04, Math.min(12, W * 0.030), unlocked ? d.accent : '#666275', { align: 'left', weight: 800, stroke: false });
+    text(unlocked ? d.mission : 'LOCKED：前の惑星をクリア', tx, card.y + card.h * 0.27, Math.min(11, W * 0.028), unlocked ? '#dddaf5' : '#5f5b70', { align: 'left', weight: 700, stroke: false });
+    if (planetClear[card.id]) text('★ CLEAR', card.x + card.w * 0.43, card.y - card.h * 0.25, Math.min(11, W * 0.028), '#fff27a', { align: 'right', weight: 900 });
+  }
+
+  const sd = PLANETS[selectedPlanet], canStart = planetUnlocked(selectedPlanet);
   const sg = ctx.createLinearGradient(0, L.start.y - L.start.h / 2, 0, L.start.y + L.start.h / 2);
-  sg.addColorStop(0, '#75d8ff'); sg.addColorStop(1, '#416cff');
-  ctx.save(); ctx.shadowColor = '#68cfff'; ctx.shadowBlur = 16;
-  roundBtn(L.start.x, L.start.y, L.start.w, L.start.h, sg); ctx.restore();
-  text(lunaCleared ? 'もう一度挑戦' : 'ルナ・ヴェイルへ', L.start.x, L.start.y, L.start.h * 0.36, '#fff', { strokeColor: '#17306f' });
+  if (selectedPlanet === 'luna') { sg.addColorStop(0, '#75d8ff'); sg.addColorStop(1, '#416cff'); }
+  else if (selectedPlanet === 'gravitas') { sg.addColorStop(0, '#ffb06a'); sg.addColorStop(1, '#c8483c'); }
+  else { sg.addColorStop(0, '#c9a8ff'); sg.addColorStop(1, '#6657d9'); }
+  ctx.globalAlpha = canStart ? 1 : 0.35;
+  roundBtn(L.start.x, L.start.y, L.start.w, L.start.h, sg);
+  ctx.globalAlpha = 1;
+  text(canStart ? (planetClear[selectedPlanet] ? 'もう一度挑戦' : sd.name + 'へ') : '未解放', L.start.x, L.start.y, L.start.h * 0.34, '#fff', { strokeColor: '#18204f' });
 
-  roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.45)');
+  roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.40)');
   rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
-  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,180,255,0.55)'; ctx.stroke();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(190,180,255,0.48)'; ctx.stroke();
   text('タイトルへ戻る', L.back.x, L.back.y, L.back.h * 0.32, '#e8e6ff', { strokeColor: '#171044' });
 }
 
@@ -1477,11 +1603,15 @@ function drawOver() {
   if (stateT < 0.3) return;
   const cx = W / 2, L = overLayout();
   ctx.save(); ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 20;
-  text(currentMode === 'luna' ? '航行失敗' : 'ゲームオーバー', cx, L.titleY, L.s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
+  text(isPlanetMode() ? '航行失敗' : 'ゲームオーバー', cx, L.titleY, L.s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
   const sw = textW(String(score), L.vs);
   text(String(score), cx, L.scoreY, L.vs, '#fff');
   text('スコア', cx - sw / 2 - 8, L.scoreY + L.vs * 0.12, L.ls, '#a9a3d6', { weight: 700, align: 'right' });
-  if (currentMode === 'luna') text('射出 ' + stats.cleared + '/' + LUNA_GOAL, cx, L.hiY, L.ls * 1.1, '#9ffcff', { weight: 800 });
+  if (isPlanetMode()) {
+    const d = stageDef();
+    const pv = currentMode === 'luna' ? ('射出 ' + stats.cleared + '/' + d.goal) : currentMode === 'gravitas' ? ('アンカー ' + stats.anchors + '/' + d.goal) : ('生存 ' + Math.floor(playT) + '/' + d.goal + '秒');
+    text(pv, cx, L.hiY, L.ls * 1.1, d.accent, { weight: 800 });
+  }
   else if (newHi) text('★ 自己ベスト更新！ ★', cx, L.hiY, L.ls * 1.1, '#fff27a');
   else text('自己ベスト  ' + hi, cx, L.hiY, L.ls, '#fff27a', { weight: 700 });
   const st = '打ち上げ ' + stats.clears + '回　押し上げ ' + stats.pushes + '回　最大コンボ ' + maxCombo + '　Lv.' + level;
@@ -1500,16 +1630,20 @@ function drawStageClear() {
   const a = Math.min(1, stateT * 2);
   ctx.fillStyle = `rgba(4,14,34,${0.78 * a})`; ctx.fillRect(0, 0, W, H);
   if (stateT < 0.25) return;
-  const cx = W / 2, L = clearLayout();
-  ctx.save(); ctx.shadowColor = '#7de8ff'; ctx.shadowBlur = 28;
-  text('MISSION CLEAR', cx, H * 0.27, Math.min(W * 0.105, 46), '#dffaff', { strokeColor: '#12365c' }); ctx.restore();
-  text('ルナ・ヴェイル', cx, H * 0.35, Math.min(W * 0.052, 22), '#a9c8ff', { weight: 800 });
-  text('メテオ ' + stats.cleared + '個を軌道外へ射出', cx, H * 0.43, Math.min(W * 0.045, 18), '#fff27a', { weight: 800 });
-  text('低重力下での排除任務 完了', cx, H * 0.49, Math.min(W * 0.035, 14), '#bfe8ff', { weight: 700 });
+  const cx = W / 2, L = clearLayout(), d = stageDef();
+  ctx.save(); ctx.shadowColor = d ? d.accent : '#7de8ff'; ctx.shadowBlur = 28;
+  text('MISSION CLEAR', cx, H * 0.27, Math.min(W * 0.105, 46), '#f2fbff', { strokeColor: '#12365c' }); ctx.restore();
+  text(d ? d.name : 'PLANET', cx, H * 0.35, Math.min(W * 0.052, 22), d ? d.accent : '#a9c8ff', { weight: 800 });
+  let result = '';
+  if (currentMode === 'luna') result = 'メテオ ' + stats.cleared + '個を軌道外へ射出';
+  else if (currentMode === 'gravitas') result = 'アンカー・メテオ ' + stats.anchors + '個を射出';
+  else if (currentMode === 'tempest') result = Math.floor(playT) + '秒のメテオ嵐を生存';
+  text(result, cx, H * 0.43, Math.min(W * 0.043, 18), '#fff27a', { weight: 800 });
+  text(d ? d.tag + ' ミッション完了' : '任務完了', cx, H * 0.49, Math.min(W * 0.035, 14), '#d7e9ff', { weight: 700 });
   text('SCORE  ' + score, cx, H * 0.57, Math.min(W * 0.07, 30), '#fff', { weight: 900 });
 
   const gr = ctx.createLinearGradient(0, L.retry.y - L.retry.h / 2, 0, L.retry.y + L.retry.h / 2);
-  gr.addColorStop(0, '#75d8ff'); gr.addColorStop(1, '#416cff');
+  gr.addColorStop(0, d ? d.accent : '#75d8ff'); gr.addColorStop(1, '#416cff');
   roundBtn(L.retry.x, L.retry.y, L.retry.w, L.retry.h, gr);
   text('もう一度挑戦', L.retry.x, L.retry.y, L.retry.h * 0.34, '#fff', { strokeColor: '#17306f' });
 

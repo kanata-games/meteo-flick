@@ -118,7 +118,11 @@ const P = { G: 11, TH: 34, IB: 2, IN: 1.2, FB: 0.3, FN: 0.1, WP: 0.9, TERM: 16, 
 // 打ち上げ後に落ちてくる塊（推力なし・下降中）の落下を列数（幅）で段階的に変える: [重力, 最大落下速度(段/秒)]
 // 1列は速く落ち、幅が広いほどゆっくり（押し上げ・追加点火の猶予が増える）。3〜4列は従来どおり P.GF / P.TF（null の段）
 const FALL_W = [null, { g: 11, t: 12 }, { g: 7.5, t: 9 }, null, null, { g: 3.8, t: 5.2 }, { g: 3.8, t: 5.2 }, { g: 3, t: 4 }];
-const fallStage = nc => FALL_W[clamp(nc, 1, 7)] || { g: P.GF, t: P.TF };
+const fallStage = nc => {
+  const base = FALL_W[clamp(nc, 1, 7)] || { g: P.GF, t: P.TF };
+  if (currentMode === 'luna') return { g: base.g * 0.48, t: base.t * 0.64 };
+  return base;
+};
 const CHAIN_T = 1.5; // 落ちてきた塊のブロックが着地後に「再点火コンボ」を引き継ぐ秒数（燃えカスの間はずっと保持）
 const FONT = "'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP','Noto Sans CJK JP','Yu Gothic',Meiryo,system-ui,sans-serif";
 const COLORS = [
@@ -313,7 +317,10 @@ function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e
 
 // ===================== ゲーム状態 =====================
 let state = 'title', stateT = 0;
-let currentMode = 'classic'; // phase 1: classic is the existing ruleset; planet route is a separate shell
+let currentMode = 'classic';
+const LUNA_GOAL = 30;
+let lunaCleared = false;
+try { lunaCleared = localStorage.getItem('meteoflick_luna_clear') === '1'; } catch (e) {}
 let rest = [], groups = [], particles = [], popups = [], flyaways = [];
 const drags = new Map();
 let score = 0, level = 1, levelT = 0, spawnT = 0, playT = 0, shake = 0, flashA = 0, maxCombo = 0;
@@ -326,9 +333,20 @@ let nextId = 1, live = 0; // live: 盤上に存在するブロック数（整合
 try { hi = +localStorage.getItem('meteoflick_hi') || 0; } catch (e) {}
 
 function newBlock(color) { return { id: nextId++, color, state: 'norm', t: 0, ay: 0, flash: 0, squash: 0, dragOff: 0, dragging: false, chain: 0, chainT: 0 }; }
-const numColors = () => level >= 4 ? 6 : 5;
-// 落下（未着地メテオ）速度と出現間隔（前バージョンと同じ）
+const numColors = () => currentMode === 'luna' ? 5 : (level >= 4 ? 6 : 5);
+// 落下（未着地メテオ）速度と出現間隔（CLASSIC基準）
 const T = { FS0: 1.6, FSL: 0.25, FSMAX: 5, SI0: 1.7, SIL: 0.1, SIMIN: 0.45 };
+const BASE_P = Object.assign({}, P);
+const BASE_T = Object.assign({}, T);
+function applyModeRules() {
+  Object.assign(P, BASE_P);
+  Object.assign(T, BASE_T);
+  if (currentMode === 'luna') {
+    // ルナ・ヴェイル: 低重力。上昇は長く、落下もゆっくり。CLASSICの操作感は維持する。
+    Object.assign(P, { G: 5.2, TH: 24.5, TERM: 11, GF: 2.7, TF: 4.2, PV: 0.62, RF: 0.085, SNAP: 0.62 });
+    Object.assign(T, { FS0: 1.25, FSL: 0.18, FSMAX: 4.0, SI0: 1.75, SIL: 0.085, SIMIN: 0.55 });
+  }
+}
 const fallSpeed = () => Math.min(T.FSMAX, T.FS0 + T.FSL * (level - 1));
 const spawnInterval = () => Math.max(T.SIMIN, T.SI0 - T.SIL * (level - 1));
 const key = (c, r) => c * 10000 + r + 5000;
@@ -355,22 +373,44 @@ function initBoard() {
 
 function startGame() {
   initAudio();
+  applyModeRules();
   state = 'play'; stateT = 0; paused = false; stopFast();
   groups = []; particles = []; popups = []; flyaways = []; drags.clear();
   score = 0; level = 1; levelT = 0; spawnT = 2.0; playT = 0; shake = 0; flashA = 0; maxCombo = 0; newHi = false;
   stats = { swaps: 0, ign: 0, clears: 0, cleared: 0, pushes: 0, reig: 0, stoneMoves: 0 };
   initBoard();
   sfx.start();
-  popup('スタート！', W / 2, ftop + cell * 4, { size: 1.6, color: '#fff27a', life: 1.1 });
+  if (currentMode === 'luna') {
+    popup('ルナ・ヴェイル', W / 2, ftop + cell * 3.4, { size: 1.35, color: '#bfe8ff', life: 1.5 });
+    popup('メテオを ' + LUNA_GOAL + '個 射出せよ！', W / 2, ftop + cell * 4.7, { size: 0.95, color: '#fff27a', life: 1.7 });
+  } else {
+    popup('スタート！', W / 2, ftop + cell * 4, { size: 1.6, color: '#fff27a', life: 1.1 });
+  }
+}
+
+function stageClear() {
+  if (state !== 'play' || currentMode !== 'luna') return;
+  state = 'clear'; stateT = 0; paused = false; stopFast();
+  for (const id of [...drags.keys()]) endDrag(id);
+  lunaCleared = true;
+  try { localStorage.setItem('meteoflick_luna_clear', '1'); } catch (e) {}
+  shake = 8; flashA = 0.35;
+  sfx.level(); buzz([40, 35, 80]);
+}
+
+function toPlanetSelect() {
+  paused = false; state = 'planet'; stateT = 0; stopFast();
+  for (const id of [...drags.keys()]) endDrag(id);
+  groups = []; particles = []; popups = []; flyaways = []; shake = 0; flashA = 0;
 }
 
 function gameOver() {
   if (state !== 'play') return;
   state = 'over'; stateT = 0; paused = false; stopFast();
   for (const id of [...drags.keys()]) endDrag(id);
-  if (score > hi) { hi = score; newHi = true; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
+  if (currentMode === 'classic' && score > hi) { hi = score; newHi = true; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
   shake = 10; sfx.over(); buzz([80, 60, 120]);
-  rkOnGameOver();
+  if (currentMode === 'classic') rkOnGameOver();
 }
 
 // ===================== 一時停止 =====================
@@ -388,7 +428,7 @@ function resumeGame() {
   tone(390, 0.08, 'triangle', 0.08, 620);
 }
 function toTitle() {
-  if (score > hi) { hi = score; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
+  if (currentMode === 'classic' && score > hi) { hi = score; try { localStorage.setItem('meteoflick_hi', String(hi)); } catch (e) {} }
   paused = false; state = 'title'; stateT = 0; stopFast();
   for (const id of [...drags.keys()]) endDrag(id);
   groups = []; particles = []; popups = []; flyaways = []; shake = 0; flashA = 0;
@@ -834,7 +874,14 @@ function onDown(e) {
   }
   if (state === 'planet') {
     const L = planetLayout();
-    if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
+    if (inRect(x, y, L.start.x, L.start.y, L.start.w, L.start.h * 1.2)) { currentMode = 'luna'; startGame(); }
+    else if (inRect(x, y, L.back.x, L.back.y, L.back.w, L.back.h * 1.25)) toTitle();
+    return;
+  }
+  if (state === 'clear') {
+    const L = clearLayout();
+    if (stateT > 0.5 && inRect(x, y, L.retry.x, L.retry.y, L.retry.w, L.retry.h * 1.2)) startGame();
+    else if (stateT > 0.5 && inRect(x, y, L.planet.x, L.planet.y, L.planet.w, L.planet.h * 1.2)) toPlanetSelect();
     return;
   }
   if (state === 'over') { // リトライはボタンのみ（ランキング入力中の誤タップで次のゲームが始まらないように）
@@ -965,17 +1012,26 @@ function stepPlay(dt) {
   // ドラッグ中ブロックの妥当性
   for (const [id, d] of drags) { const l = locate(d.b); if (!l || !canMove(d.b, l)) endDrag(id); }
 
+  if (currentMode === 'luna' && stats.cleared >= LUNA_GOAL) { stageClear(); return; }
   for (let c = 0; c < COLS; c++) if (rest[c].length > ROWS) { gameOver(); break; }
 }
 
 // ===================== 描画 =====================
 function drawBg() {
+  const luna = currentMode === 'luna' && (state === 'play' || state === 'over' || state === 'clear');
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#05030f'); g.addColorStop(0.55, '#140a33'); g.addColorStop(1, '#2a0f45');
+  if (luna) { g.addColorStop(0, '#030b20'); g.addColorStop(0.55, '#102a4a'); g.addColorStop(1, '#172747'); }
+  else { g.addColorStop(0, '#05030f'); g.addColorStop(0.55, '#140a33'); g.addColorStop(1, '#2a0f45'); }
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const n = ctx.createRadialGradient(W * 0.75, H * 0.25, 0, W * 0.75, H * 0.25, W * 0.8);
-  n.addColorStop(0, 'rgba(90,60,200,0.22)'); n.addColorStop(1, 'rgba(90,60,200,0)');
+  n.addColorStop(0, luna ? 'rgba(90,190,255,0.24)' : 'rgba(90,60,200,0.22)'); n.addColorStop(1, luna ? 'rgba(70,150,255,0)' : 'rgba(90,60,200,0)');
   ctx.fillStyle = n; ctx.fillRect(0, 0, W, H);
+  if (luna) {
+    const r = Math.min(W * 0.38, 170), px = W * 0.14, py = H * 0.82;
+    const pg = ctx.createRadialGradient(px - r * 0.25, py - r * 0.28, r * 0.08, px, py, r);
+    pg.addColorStop(0, 'rgba(220,245,255,0.30)'); pg.addColorStop(0.52, 'rgba(100,165,220,0.18)'); pg.addColorStop(1, 'rgba(40,80,140,0)');
+    ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+  }
   for (const s of stars) {
     const y = (s.y + time * (6 + s.z * 30)) % H;
     const a = 0.35 + 0.65 * Math.abs(Math.sin(s.tw + time * (0.8 + s.z)));
@@ -1008,7 +1064,8 @@ function drawField() {
   ctx.strokeStyle = 'rgba(160,140,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(fx - 0.5, ftop - 0.5, fw + 1, cell * ROWS + 1);
   // 地面
   const gg = ctx.createLinearGradient(0, fb, 0, H);
-  gg.addColorStop(0, '#6b4aa8'); gg.addColorStop(0.15, '#3a2366'); gg.addColorStop(1, '#1a0d33');
+  if (currentMode === 'luna') { gg.addColorStop(0, '#5b87b4'); gg.addColorStop(0.15, '#294d70'); gg.addColorStop(1, '#10243c'); }
+  else { gg.addColorStop(0, '#6b4aa8'); gg.addColorStop(0.15, '#3a2366'); gg.addColorStop(1, '#1a0d33'); }
   ctx.fillStyle = gg; ctx.fillRect(fx - 6, fb, fw + 12, H - fb);
   if (danger && state === 'play') {
     ctx.font = `900 ${Math.round(cell * 0.45)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -1126,28 +1183,43 @@ function textW(str, size, weight) { ctx.font = `${weight || 900} ${Math.round(si
 function drawHUD() {
   const pad = Math.max(10, fx);
   const ls = Math.round(hudH * 0.22), vs = Math.round(hudH * 0.4);
-  const lx = BTN.fast - BTN.s / 2 - 4; // レベル表示の右端（ボタンの左）
+  const lx = BTN.fast - BTN.s / 2 - 4;
   const lbl = { align: 'left', weight: 700, strokeColor: 'rgba(10,5,30,0.6)' };
   text('スコア', pad, hudH * 0.28, ls, '#a9a3d6', lbl);
   text(String(score), pad, hudH * 0.64, vs, '#ffffff', { align: 'left' });
-  text('レベル', lx, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'right' }));
-  text(String(level), lx, hudH * 0.64, vs, '#7affb0', { align: 'right' });
+
+  if (currentMode === 'luna') {
+    text('射出', lx, hudH * 0.28, ls, '#a9c8ff', Object.assign({}, lbl, { align: 'right' }));
+    text(Math.min(stats.cleared, LUNA_GOAL) + '/' + LUNA_GOAL, lx, hudH * 0.64, vs * 0.78, '#9ffcff', { align: 'right' });
+  } else {
+    text('レベル', lx, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'right' }));
+    text(String(level), lx, hudH * 0.64, vs, '#7affb0', { align: 'right' });
+  }
+
   const sR = pad + Math.max(textW('スコア', ls, 700), textW(String(score), vs));
-  const lL = lx - Math.max(textW('レベル', ls, 700), textW(String(level), vs));
+  const rightStr = currentMode === 'luna' ? (Math.min(stats.cleared, LUNA_GOAL) + '/' + LUNA_GOAL) : String(level);
+  const lL = lx - Math.max(textW(currentMode === 'luna' ? '射出' : 'レベル', ls, 700), textW(rightStr, vs * (currentMode === 'luna' ? 0.78 : 1)));
   const cxm = (sR + lL) / 2, avail = Math.max(40, lL - sR - 12);
   let combo = 0; for (const gg of groups) if (!gg.meteor && gg.combo > combo) combo = gg.combo;
   if (combo >= 2) {
     const pulse = 1 + 0.08 * Math.sin(time * 18), str = 'コンボ ×' + combo;
     const sz = Math.min(vs * 0.85, vs * 0.85 * avail / textW(str, vs * 0.85));
     text(str, cxm, hudH * 0.5, sz * pulse, '#ffb84a');
+  } else if (currentMode === 'luna') {
+    text('低重力', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
+    text('LUNA', cxm, hudH * 0.64, vs * 0.68, '#bfe8ff');
   } else {
     text('自己ベスト', cxm, hudH * 0.28, ls, '#a9a3d6', Object.assign({}, lbl, { align: 'center' }));
     text(String(Math.max(hi, score)), cxm, hudH * 0.64, vs * 0.75, '#fff27a');
   }
   drawHudBtn('pause'); drawHudBtn('fast');
-  // レベル進行バー
+
   ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(fx, hudH - 3, cell * COLS, 3);
-  ctx.fillStyle = '#7affb0'; ctx.fillRect(fx, hudH - 3, cell * COLS * (levelT / LEVEL_TIME), 3);
+  if (currentMode === 'luna') {
+    ctx.fillStyle = '#9ffcff'; ctx.fillRect(fx, hudH - 3, cell * COLS * Math.min(1, stats.cleared / LUNA_GOAL), 3);
+  } else {
+    ctx.fillStyle = '#7affb0'; ctx.fillRect(fx, hudH - 3, cell * COLS * (levelT / LEVEL_TIME), 3);
+  }
 }
 
 function drawHudBtn(kind) {
@@ -1227,7 +1299,17 @@ function howToLayout() {
 
 function planetLayout() {
   const bh = Math.round(clamp(H * 0.068, 46, 58));
-  return { back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.62, 260), h: bh } };
+  return {
+    start: { x: W / 2, y: H * 0.73, w: Math.min(W * 0.72, 310), h: bh },
+    back: { x: W / 2, y: H - Math.max(22, H * 0.045), w: Math.min(W * 0.58, 240), h: Math.round(bh * 0.86) }
+  };
+}
+function clearLayout() {
+  const bh = Math.round(clamp(H * 0.07, 48, 60)), w = Math.min(W * 0.72, 310);
+  return {
+    retry: { x: W / 2, y: H * 0.70, w, h: bh },
+    planet: { x: W / 2, y: H * 0.70 + bh * 1.35, w, h: bh }
+  };
 }
 
 function drawTitle() {
@@ -1342,11 +1424,19 @@ function drawPlanetSelect() {
   ctx.beginPath(); ctx.arc(cx, py, r * 1.26, Math.PI * 0.1, Math.PI * 1.12);
   ctx.lineWidth = Math.max(3, r * 0.07); ctx.strokeStyle = 'rgba(180,210,255,0.45)'; ctx.stroke();
 
-  text('第1惑星', cx, py + r * 1.55, Math.min(15, W * 0.04), '#a9c8ff', { weight: 700 });
-  text('ルナ・ヴェイル', cx, py + r * 1.95, Math.min(22, W * 0.055), '#fff', { weight: 900 });
-  text('次の段階で低重力ルールを実装予定', cx, py + r * 2.35, Math.min(13, W * 0.033), '#b9b2ef', { weight: 700 });
+  text('第1惑星', cx, py + r * 1.42, Math.min(15, W * 0.04), '#a9c8ff', { weight: 700 });
+  text('ルナ・ヴェイル', cx, py + r * 1.82, Math.min(22, W * 0.055), '#fff', { weight: 900 });
+  text('低重力：打ち上げた塊が長く滞空する', cx, py + r * 2.18, Math.min(13, W * 0.033), '#bfe8ff', { weight: 700 });
+  text('MISSION　メテオを ' + LUNA_GOAL + '個 射出', cx, py + r * 2.50, Math.min(13, W * 0.033), '#fff27a', { weight: 800 });
+  if (lunaCleared) text('★ CLEAR', cx, py - r * 1.33, Math.min(14, W * 0.036), '#fff27a', { weight: 900 });
 
   const L = planetLayout();
+  const sg = ctx.createLinearGradient(0, L.start.y - L.start.h / 2, 0, L.start.y + L.start.h / 2);
+  sg.addColorStop(0, '#75d8ff'); sg.addColorStop(1, '#416cff');
+  ctx.save(); ctx.shadowColor = '#68cfff'; ctx.shadowBlur = 16;
+  roundBtn(L.start.x, L.start.y, L.start.w, L.start.h, sg); ctx.restore();
+  text(lunaCleared ? 'もう一度挑戦' : 'ルナ・ヴェイルへ', L.start.x, L.start.y, L.start.h * 0.36, '#fff', { strokeColor: '#17306f' });
+
   roundBtn(L.back.x, L.back.y, L.back.w, L.back.h, 'rgba(90,78,170,0.45)');
   rr(ctx, L.back.x - L.back.w / 2, L.back.y - L.back.h / 2, L.back.w, L.back.h, L.back.h / 2);
   ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,180,255,0.55)'; ctx.stroke();
@@ -1374,11 +1464,12 @@ function drawOver() {
   if (stateT < 0.3) return;
   const cx = W / 2, L = overLayout();
   ctx.save(); ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 20;
-  text('ゲームオーバー', cx, L.titleY, L.s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
+  text(currentMode === 'luna' ? '航行失敗' : 'ゲームオーバー', cx, L.titleY, L.s, '#ff7a8a', { strokeColor: '#3a0010' }); ctx.restore();
   const sw = textW(String(score), L.vs);
   text(String(score), cx, L.scoreY, L.vs, '#fff');
   text('スコア', cx - sw / 2 - 8, L.scoreY + L.vs * 0.12, L.ls, '#a9a3d6', { weight: 700, align: 'right' });
-  if (newHi) text('★ 自己ベスト更新！ ★', cx, L.hiY, L.ls * 1.1, '#fff27a');
+  if (currentMode === 'luna') text('射出 ' + stats.cleared + '/' + LUNA_GOAL, cx, L.hiY, L.ls * 1.1, '#9ffcff', { weight: 800 });
+  else if (newHi) text('★ 自己ベスト更新！ ★', cx, L.hiY, L.ls * 1.1, '#fff27a');
   else text('自己ベスト  ' + hi, cx, L.hiY, L.ls, '#fff27a', { weight: 700 });
   const st = '打ち上げ ' + stats.clears + '回　押し上げ ' + stats.pushes + '回　最大コンボ ' + maxCombo + '　Lv.' + level;
   let ss = L.ls * 0.9; const tw = textW(st, ss, 700); if (tw > W * 0.94) ss *= W * 0.94 / tw;
@@ -1389,6 +1480,30 @@ function drawOver() {
     roundBtn(cx, L.by, bw, bh, gr);
     text('リトライ', cx, L.by, bh * 0.42, '#fff', { strokeColor: '#0a2a6a' });
   }
+}
+
+
+function drawStageClear() {
+  const a = Math.min(1, stateT * 2);
+  ctx.fillStyle = `rgba(4,14,34,${0.78 * a})`; ctx.fillRect(0, 0, W, H);
+  if (stateT < 0.25) return;
+  const cx = W / 2, L = clearLayout();
+  ctx.save(); ctx.shadowColor = '#7de8ff'; ctx.shadowBlur = 28;
+  text('MISSION CLEAR', cx, H * 0.27, Math.min(W * 0.105, 46), '#dffaff', { strokeColor: '#12365c' }); ctx.restore();
+  text('ルナ・ヴェイル', cx, H * 0.35, Math.min(W * 0.052, 22), '#a9c8ff', { weight: 800 });
+  text('メテオ ' + stats.cleared + '個を軌道外へ射出', cx, H * 0.43, Math.min(W * 0.045, 18), '#fff27a', { weight: 800 });
+  text('低重力下での排除任務 完了', cx, H * 0.49, Math.min(W * 0.035, 14), '#bfe8ff', { weight: 700 });
+  text('SCORE  ' + score, cx, H * 0.57, Math.min(W * 0.07, 30), '#fff', { weight: 900 });
+
+  const gr = ctx.createLinearGradient(0, L.retry.y - L.retry.h / 2, 0, L.retry.y + L.retry.h / 2);
+  gr.addColorStop(0, '#75d8ff'); gr.addColorStop(1, '#416cff');
+  roundBtn(L.retry.x, L.retry.y, L.retry.w, L.retry.h, gr);
+  text('もう一度挑戦', L.retry.x, L.retry.y, L.retry.h * 0.34, '#fff', { strokeColor: '#17306f' });
+
+  roundBtn(L.planet.x, L.planet.y, L.planet.w, L.planet.h, 'rgba(110,100,190,0.45)');
+  rr(ctx, L.planet.x - L.planet.w / 2, L.planet.y - L.planet.h / 2, L.planet.w, L.planet.h, L.planet.h / 2);
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,210,255,0.55)'; ctx.stroke();
+  text('星間航路へ戻る', L.planet.x, L.planet.y, L.planet.h * 0.32, '#e8f3ff', { strokeColor: '#171044' });
 }
 
 // ===================== オンラインランキング（Firebase REST・SDKなし） =====================
@@ -1651,7 +1766,7 @@ rkUI.name.addEventListener('blur', () => setTimeout(rkKeyboard, 50));
 
 // 画面状態に合わせて表示・配置（毎フレーム呼ぶ。変化があるときだけDOMを触る）
 function rkSync() {
-  const v = state === 'title' ? 'title' : state === 'over' && stateT > 0.5 ? 'over' : '';
+  const v = state === 'title' ? 'title' : (state === 'over' && currentMode === 'classic' && stateT > 0.5 ? 'over' : '');
   if (v !== rk.view) {
     rk.view = v;
     rkUI.open.hidden = v !== 'title';
@@ -1688,6 +1803,7 @@ function draw() {
   drawHUD();
   if (flashA > 0) { ctx.fillStyle = `rgba(255,255,240,${flashA})`; ctx.fillRect(0, 0, W, H); }
   if (state === 'over') { drawOver(); drawHudBtn('mute'); }
+  if (state === 'clear') { drawStageClear(); drawHudBtn('mute'); }
   if (paused) { drawPause(); drawHudBtn('pause'); }
 }
 

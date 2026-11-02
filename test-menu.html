@@ -364,12 +364,11 @@ for (const id of Object.keys(endlessHi)) {
 }
 const isPlanetMode = () => !!PLANETS[currentMode];
 const stageDef = () => PLANETS[currentMode] || null;
+const branchClearCount = () => ['gravitas','tempest','prismaria'].reduce((n, id) => n + (planetClear[id] ? 1 : 0), 0);
 const planetUnlocked = id =>
   id === 'luna' ||
-  (id === 'gravitas' && planetClear.luna) ||
-  (id === 'tempest' && planetClear.gravitas) ||
-  (id === 'prismaria' && planetClear.tempest) ||
-  (id === 'volca' && planetClear.prismaria);
+  (planetClear.luna && (id === 'gravitas' || id === 'tempest' || id === 'prismaria')) ||
+  (id === 'volca' && planetClear.luna && branchClearCount() >= 2);
 let storyPage = 0, archiveTab = 0, archivePage = 0;
 const STORY_LOGS = [
   {
@@ -377,23 +376,23 @@ const STORY_LOGS = [
     body: '複数の惑星圏で、通常の天体現象では説明できない規模のメテオ降下が観測された。原因はまだ分からない。まずは各惑星の軌道を安定させ、観測記録を集める。'
   },
   {
-    title: '観測記録 01', sub: 'ルナ・ヴェイル', req: 'luna',
+    title: '観測記録：LUNA', sub: 'ルナ・ヴェイル', req: 'luna',
     body: '低重力圏。打ち上げられたメテオ群は長く宙に留まり、わずかな再点火でも軌道を大きく変えた。ここでは「飛ばす」より「飛ばし続ける」感覚が重要らしい。'
   },
   {
-    title: '観測記録 02', sub: 'グラヴィタス', req: 'gravitas',
+    title: '観測記録：GRAV', sub: 'グラヴィタス', req: 'gravitas',
     body: '高重力圏で、異常に重いアンカー・メテオを確認。通常の塊に混ざるだけで推力を奪う。自然物と呼ぶには、あまりにも性質がはっきりしすぎている。'
   },
   {
-    title: '観測記録 03', sub: 'テンペスト9', req: 'tempest',
+    title: '観測記録：STORM', sub: 'テンペスト9', req: 'tempest',
     body: '9秒間だけ空が崩れるようなメテオ嵐が発生する。嵐の最中には雷を帯びた個体も混ざる。点火すると落雷を呼び、盤面を縦に切り裂いた。'
   },
   {
-    title: '観測記録 04', sub: 'プリズマリア', req: 'prismaria',
+    title: '観測記録：PRISM', sub: 'プリズマリア', req: 'prismaria',
     body: '周囲の色に同調するプリズム・メテオを確認。同じ個体が状況によって異なる色の連鎖へ参加する。メテオはただの岩石ではないのかもしれない。'
   },
   {
-    title: '観測記録 05', sub: 'ボルカ・ゼロ', req: 'volca',
+    title: '観測記録：VOLCA', sub: 'ボルカ・ゼロ', req: 'volca',
     body: '着地後に自己崩壊を始めるボム・メテオ。こちらから点火すれば制御できるが、放置すれば暴発する。なぜ「待つ」ことで危険度が増すのかは未解明。'
   }
 ];
